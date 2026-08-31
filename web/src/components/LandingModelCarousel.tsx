@@ -30,7 +30,7 @@ MODELS.forEach((m) => useGLTF.preload(m.url));
 // else - and since a fade-out's end is the very next fade-in's start,
 // there's no stretch of time with nothing visible either.
 const FADE_SECONDS = 0.4;
-const OBJECT_HOLD_SECONDS = 1.6;
+const OBJECT_HOLD_SECONDS = 3.4;
 const DOT_HOLD_SECONDS = 0.6;
 const SLOT_SECONDS = FADE_SECONDS * 4 + OBJECT_HOLD_SECONDS + DOT_HOLD_SECONDS;
 const TARGET_SIZE = 1.15;
@@ -246,10 +246,10 @@ function Carousel() {
           near-black page background - the front fill and brighter rim
           keep its silhouette lit up even when its own albedo is close to
           black. */}
-      <ambientLight intensity={0.9} />
-      <directionalLight position={[2.5, 3.5, 4]} intensity={1.5} />
-      <directionalLight position={[0, 0.5, 3]} intensity={0.6} />
-      <directionalLight position={[-3, -1, -2]} intensity={0.6} color="#8b6cff" />
+      <ambientLight intensity={0.75} />
+      <directionalLight position={[2.5, 3.5, 4]} intensity={1.05} />
+      <directionalLight position={[0, 0.5, 3]} intensity={0.45} />
+      <directionalLight position={[-3, -1, -2]} intensity={0.7} color="#8b6cff" />
       <Dot weightRef={dotWeight} />
       {MODELS.map((m, i) => (
         <FittedModel
