@@ -54,7 +54,7 @@ function BrainMesh({ selectedId, onSelect }: { selectedId: string; onSelect: (id
   // during render via useMemo. Mutating materials on every mesh (below) is
   // a real side effect on an external system (the loaded three.js scene),
   // so that part stays in an effect.
-  const shellMesh = useMemo(() => {
+  const shellMesh = useMemo<THREE.Mesh | null>(() => {
     let found: THREE.Mesh | null = null;
     scene.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh && obj.name === 'brain_shell') found = obj as THREE.Mesh;
