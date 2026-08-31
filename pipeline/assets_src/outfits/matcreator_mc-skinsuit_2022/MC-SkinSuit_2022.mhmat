@@ -1,0 +1,77 @@
+# This is a material file for MakeHuman, produced by MakeSkin
+
+// Metadata
+
+name MC-SkinSuit_2022
+description Default material for SkinSuit
+license CC0
+author MatCreator
+
+// Color
+
+diffuseColor 0.5000 0.5000 0.5000
+specularColor 0.3000 0.3000 0.3000
+viewPortColor 0.8000 0.8000 0.8000
+
+// Texture
+
+diffuseTexture MC-SkinSuit_2022_diffuse.png
+normalmapTexture MC-SkinSuit_2022_normal.png
+roughnessmapTexture MC-SkinSuit_2022_roughness.png
+metallicmapTexture MC-SkinSuit_2022_metallic.png
+
+// Intensity
+
+normalmapIntensity 1.0000
+
+// SSS
+
+
+// Various
+
+litsphereTexture lit_leather
+metallic 0.0000
+ior 1.4500
+roughness 0.7000
+shininess 0.3000
+opacity 1.0000
+shadeless False
+wireframe False
+transparent False
+alphaToCoverage True
+backfaceCull True
+depthless False
+castShadows True
+receiveShadows True
+autoBlendSkin False
+
+// Shader properties (only affects how things look in MakeHuman)
+
+shaderConfig normal True
+
+// The following settings would also have been valid, but do currently not have a value
+//
+// tag
+// uuid
+// homepage
+// shaderParam
+// emissiveColor
+// ambientColor
+// bumpmapTexture
+// displacementmapTexture
+// specularmapTexture
+// transmissionmapTexture
+// transparencymapTexture
+// aomapTexture
+// diffuseIntensity
+// bumpmapIntensity
+// displacementMapIntensity
+// specularmapIntensity
+// transparencymapIntensity
+// aomapIntensity
+// sssEnabled
+// sssRScale
+// sssGScale
+// sssBScale
+// blendMaterial
+// translucency

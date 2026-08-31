@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hair preview</title>
+<style>
+html,body{margin:0;width:100vw;height:100vh;background:#3a3a3a;font-family:sans-serif;}
+#wrap{display:flex;width:100vw;height:100vh;}
+.cell{flex:1 1 0;position:relative;border-right:1px solid #888;height:100vh;}
+canvas{display:block;width:100%;height:100%;}
+.label{position:absolute;top:8px;left:8px;color:#fff;z-index:2;font-size:13px;}
+#controls{position:absolute;top:8px;right:8px;z-index:3;background:rgba(0,0,0,0.55);padding:10px;border-radius:8px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+#controls .swatches{display:flex;gap:6px;flex-wrap:wrap;max-width:220px;}
+#controls button{width:26px;height:26px;border-radius:50%;border:2px solid #fff;cursor:pointer;padding:0;}
+#controls input[type=color]{width:50px;height:30px;border:none;cursor:pointer;background:none;}
+#controls label{color:#fff;font-size:12px;}
+#controls input[type=range]{width:160px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="cell" style="flex:2 1 0">
+    <div class="label">long — перекраска в реальном времени</div>
+    <div id="controls">
+      <label>Цвет волос</label>
+      <div class="swatches" id="swatches"></div>
+      <input type="color" id="colorPicker" value="#5a3222">
+      <label>Сила тонирования: <span id="strengthVal">0.9</span></label>
+      <input type="range" id="strength" min="0" max="1" step="0.05" value="0.9">
+    </div>
+    <canvas id="c-long"></canvas>
+  </div>
+  <div class="cell"><div class="label">medium</div><canvas id="c-medium"></canvas></div>
+  <div class="cell"><div class="label">short</div><canvas id="c-short"></canvas></div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const tintUniforms = []; // shared across cells that opt in
+
+function applyHairMaterialFixes(n, renderer, {tintable} = {}) {
+  n.material.side = THREE.DoubleSide;
+  n.material.transparent = false;
+  n.material.depthTest = true;
+  n.material.depthWrite = true;
+  if (n.material.map) {
+    n.material.map.wrapS = THREE.ClampToEdgeWrapping;
+    n.material.map.wrapT = THREE.ClampToEdgeWrapping;
+    n.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    n.material.map.minFilter = THREE.LinearMipmapLinearFilter;
+    n.material.map.needsUpdate = true;
+  }
+  if (tintable) {
+    const uTintColor = { value: new THREE.Color(0x5a3222) };
+    const uTintStrength = { value: 0.9 };
+    n.material.onBeforeCompile = (shader) => {
+      shader.uniforms.uTintColor = uTintColor;
+      shader.uniforms.uTintStrength = uTintStrength;
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nuniform vec3 uTintColor;\nuniform float uTintStrength;'
+        )
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+          float hairLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+          vec3 tinted = hairLum * uTintColor * 1.6;
+          diffuseColor.rgb = mix(diffuseColor.rgb, tinted, uTintStrength);`
+        );
+    };
+    n.material.needsUpdate = true;
+    tintUniforms.push({ color: uTintColor, strength: uTintStrength });
+  }
+  n.material.needsUpdate = true;
+}
+
+function setupCell(canvasId, url, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  const w = 500, h = 700;
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  renderer.setPixelRatio(1);
+  renderer.setSize(w, h, true);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+  const dir = new THREE.DirectionalLight(0xffffff, 2.0);
+  dir.position.set(2,4,6);
+  scene.add(dir);
+  const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
+  dir2.position.set(-3,2,-4);
+  scene.add(dir2);
+
+  const camera = new THREE.PerspectiveCamera(35, w/h, 0.1, 100);
+
+  new GLTFLoader().load(url, (gltf) => {
+    const obj = gltf.scene;
+    scene.add(obj);
+    obj.traverse(n => { if (n.isMesh && n.material) applyHairMaterialFixes(n, renderer, opts); });
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    obj.position.sub(center);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    camera.position.set(0, 0, maxDim * 1.8);
+    camera.lookAt(0,0,0);
+    function loop(){ renderer.render(scene, camera); requestAnimationFrame(loop); }
+    loop();
+  }, undefined, (err) => console.error("load error", canvasId, err));
+}
+
+setupCell('c-long', '/out/hair/long.glb', {tintable: true});
+setupCell('c-medium', '/out/hair/medium.glb');
+setupCell('c-short', '/out/hair/short.glb');
+
+const presetColors = ['#1b1310','#3b2314','#5a3222','#7a4a25','#a86b2e','#c9a24a','#8c1f1f','#5b2a86','#d94f9c','#e8e8e8'];
+const swatchesEl = document.getElementById('swatches');
+presetColors.forEach(hex => {
+  const b = document.createElement('button');
+  b.style.background = hex;
+  b.addEventListener('click', () => setTint(hex));
+  swatchesEl.appendChild(b);
+});
+document.getElementById('colorPicker').addEventListener('input', (e) => setTint(e.target.value));
+document.getElementById('strength').addEventListener('input', (e) => {
+  document.getElementById('strengthVal').textContent = e.target.value;
+  tintUniforms.forEach(u => u.strength.value = parseFloat(e.target.value));
+});
+function setTint(hex) {
+  document.getElementById('colorPicker').value = hex;
+  tintUniforms.forEach(u => u.color.value.set(hex));
+}
+</script>
+</body>
+</html>

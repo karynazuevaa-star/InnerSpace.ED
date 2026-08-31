@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hair-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8743", "--directory", "/Users/karinamuraveva/Projects/innerspace-body-avatar/pipeline"],
+      "port": 8743
+    },
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/karinamuraveva/Projects/innerspace-body-avatar/web", "run", "dev", "--", "--port", "5183"],
+      "port": 5183
+    }
+  ]
+}

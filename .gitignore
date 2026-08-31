@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Regenerable Blender pipeline output - already copied into web/public/models,
+# rebuilt on demand by pipeline/scripts/*.py, no need to version separately.
+pipeline/out/
+pipeline/out_legacy/
+
+# Editor/OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.local
+
+# Logs
+*.log
+npm-debug.log*

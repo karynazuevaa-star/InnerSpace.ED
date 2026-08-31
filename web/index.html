@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>web</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      Loaded as a plain classic script (not type="module") so it runs
+      synchronously, in order, before the deferred module script below -
+      that guarantees window.FaceMesh exists by the time any of our code
+      (via the mediapipeFaceMeshShim alias) needs it. See that shim for why.
+    -->
+    <script src="/mediapipe/face_mesh/face_mesh.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

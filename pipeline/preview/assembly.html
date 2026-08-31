@@ -1,0 +1,293 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>assembly preview</title>
+<style>
+html,body{margin:0;width:100vw;height:100vh;background:#3a3a3a;font-family:sans-serif;overflow:hidden;}
+canvas{display:block;width:100%;height:100%;}
+#controls{position:absolute;top:8px;left:8px;z-index:3;background:rgba(0,0,0,0.6);padding:12px;border-radius:8px;color:#fff;width:260px;}
+#controls label{display:block;font-size:12px;margin-top:8px;}
+#controls select{width:100%;}
+</style>
+</head>
+<body>
+<div id="controls">
+  <div><b>Assembly: body + hair</b></div>
+  <label>Причёска</label>
+  <select id="hairSelect">
+    <option value="">(нет)</option>
+    <option value="long" selected>long</option>
+    <option value="medium">medium</option>
+    <option value="short">short</option>
+  </select>
+  <label style="display:flex;align-items:center;gap:6px;">
+    <input type="checkbox" id="attachToggle" checked style="width:auto;"> Прикрепить к кости head
+  </label>
+  <label>Цвет волос</label>
+  <div class="swatches" id="swatches" style="display:flex;gap:6px;flex-wrap:wrap;max-width:240px;"></div>
+  <input type="color" id="colorPicker" value="#5a3222" style="width:50px;height:28px;border:none;margin-top:6px;">
+  <label>Верх</label>
+  <select id="topSelect">
+    <option value="">(нет)</option>
+    <option value="croptop" selected>майка</option>
+    <option value="hoodie">толстовка</option>
+    <option value="bodysuit">боди (обтягивающее, без низа)</option>
+    <option value="skinsuit">skinsuit (комбинезон, без низа)</option>
+  </select>
+  <label>Низ</label>
+  <select id="bottomSelect">
+    <option value="">(нет)</option>
+    <option value="shorts" selected>шорты</option>
+    <option value="tightjeans">джинсы в облипку</option>
+  </select>
+  <div id="info" style="margin-top:10px;font-size:11px;opacity:0.8;"></div>
+</div>
+<style>
+#swatches button{width:22px;height:22px;border-radius:50%;border:2px solid #fff;cursor:pointer;padding:0;}
+</style>
+<canvas id="c"></canvas>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, preserveDrawingBuffer:true});
+renderer.setPixelRatio(1);
+renderer.setSize(window.innerWidth, window.innerHeight, true);
+
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const dir = new THREE.DirectionalLight(0xffffff, 2.0);
+dir.position.set(2,4,6); scene.add(dir);
+const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
+dir2.position.set(-3,2,-4); scene.add(dir2);
+
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.05, 100);
+const controls = new OrbitControls(camera, canvas);
+camera.position.set(0, 1.55, 0.9);
+controls.target.set(0, 1.5, 0);
+camera.lookAt(0, 1.5, 0);
+
+let bodyRoot = null;
+let headBone = null;
+let currentHair = null;
+const hairCache = {};
+
+function loadGLB(url) {
+  const busted = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  return new Promise((resolve, reject) => new GLTFLoader().load(busted, resolve, undefined, reject));
+}
+
+// Live hair recolor: desaturate the sampled diffuse texture to luminance,
+// then tint by a uniform color - works on any hair material regardless of
+// its original photographed color, no separate colored texture variants
+// needed. Ported from preview/index.html; re-wired here since MPFB2's own
+// MAKESKIN material (diffuseTexture -> Mix -> Base Color) is a different
+// Blender node graph than the hand-built one used there, but glTF export
+// still flattens it down to a plain baseColorTexture, so the same
+// onBeforeCompile hook against `map` applies unchanged.
+const tintUniforms = [];
+let currentTintHex = '#5a3222';
+
+function applyHairMaterialFixes(n, renderer) {
+  n.material.side = THREE.DoubleSide;
+  n.material.transparent = false;
+  n.material.depthTest = true;
+  n.material.depthWrite = true;
+  if (n.material.map) {
+    n.material.map.wrapS = THREE.ClampToEdgeWrapping;
+    n.material.map.wrapT = THREE.ClampToEdgeWrapping;
+    n.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    n.material.map.needsUpdate = true;
+  }
+
+  const uTintColor = { value: new THREE.Color(currentTintHex) };
+  const uTintStrength = { value: 0.9 };
+  n.material.onBeforeCompile = (shader) => {
+    shader.uniforms.uTintColor = uTintColor;
+    shader.uniforms.uTintStrength = uTintStrength;
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform vec3 uTintColor;\nuniform float uTintStrength;'
+      )
+      .replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        float hairLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 tinted = hairLum * uTintColor * 1.6;
+        diffuseColor.rgb = mix(diffuseColor.rgb, tinted, uTintStrength);`
+      );
+  };
+  n.material.needsUpdate = true;
+  tintUniforms.push(uTintColor);
+}
+
+function setHairTint(hex) {
+  currentTintHex = hex;
+  tintUniforms.forEach(u => u.value.set(hex));
+}
+
+const RELAXED_ARM_BONES = [
+  { name: 'upperarm01L', degrees: [-1, 4, -34] },
+  { name: 'upperarm01R', degrees: [-1.5, -5, 32] },
+  { name: 'lowerarm01L', degrees: [-29, 0, -0.5] },
+  { name: 'lowerarm01R', degrees: [-28.5, 0, 0.8] },
+  { name: 'wristL', degrees: [0.4, 1, -0.3] },
+  { name: 'wristR', degrees: [0.5, -1.5, 0.3] },
+];
+function applyIdlePose(root) {
+  RELAXED_ARM_BONES.forEach(({name, degrees}) => {
+    const bone = root.getObjectByName(name);
+    if (!bone) return;
+    const [x,y,z] = degrees;
+    const relax = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+      THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z)
+    ));
+    bone.quaternion.multiply(relax);
+  });
+}
+
+async function init() {
+  const bodyGltf = await loadGLB('/out/body/body.glb');
+  bodyRoot = bodyGltf.scene;
+  scene.add(bodyRoot);
+  bodyRoot.traverse(n => { if (n.isMesh) n.material.side = THREE.FrontSide; });
+  headBone = bodyRoot.getObjectByName('head');
+  document.getElementById('info').textContent = headBone ? 'head bone found' : 'head bone MISSING';
+  applyIdlePose(bodyRoot);
+
+  for (const part of ['eyes', 'eyebrows', 'eyelashes']) {
+    const gltf = await loadGLB(`/out/${part}/${part}.glb`);
+    const obj = gltf.scene;
+    obj.traverse(n => {
+      if (n.isMesh) {
+        n.material.side = THREE.FrontSide;
+        if (part === 'eyelashes' || part === 'eyebrows') {
+          n.material.transparent = true;
+          n.material.depthWrite = false;
+          n.material.alphaTest = 0.3;
+        }
+      }
+    });
+    if (headBone) {
+      scene.add(obj);
+      headBone.updateWorldMatrix(true, false);
+      obj.updateMatrixWorld(true);
+      headBone.attach(obj);
+    } else {
+      scene.add(obj);
+    }
+  }
+
+  await setTop(document.getElementById('topSelect').value);
+  await setBottom(document.getElementById('bottomSelect').value);
+  await setHair(document.getElementById('hairSelect').value);
+  function loop(){ controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+  loop();
+}
+
+// Top and bottom are picked independently - switching the bottom (e.g. to
+// jeans) keeps whatever top was already chosen instead of resetting it.
+// bodysuit/skinsuit are full-coverage standalone tops that were never meant
+// to pair with a separate bottom (see the seam-fitting saga in git log), so
+// picking one of those forces the bottom back to "none" and disables it.
+const STANDALONE_TOPS = new Set(['bodysuit', 'skinsuit']);
+const outfitObjs = { top: null, bottom: null };
+
+async function loadOutfitPiece(slot, part) {
+  if (outfitObjs[slot]) {
+    outfitObjs[slot].parent && outfitObjs[slot].parent.remove(outfitObjs[slot]);
+    outfitObjs[slot] = null;
+  }
+  if (!part) return;
+  const gltf = await loadGLB(`/out/outfits/${part}.glb`);
+  const obj = gltf.scene;
+  obj.traverse(n => { if (n.isMesh) n.material.side = THREE.FrontSide; });
+  scene.add(obj); // has its own armature bundled in the glb, matching the body's bind pose
+  applyIdlePose(obj); // ...but it's a SEPARATE armature from the body's, so the idle
+  // pose applied to bodyRoot at load time never touched these bones - without this,
+  // any garment with sleeves (hoodie) stays in bind-pose T-pose arms while the body
+  // underneath moves, visibly detaching the cuffs from the actual hands.
+  outfitObjs[slot] = obj;
+}
+
+async function setTop(part) {
+  await loadOutfitPiece('top', part);
+  const bottomSelect = document.getElementById('bottomSelect');
+  if (STANDALONE_TOPS.has(part)) {
+    bottomSelect.value = '';
+    bottomSelect.disabled = true;
+    await loadOutfitPiece('bottom', '');
+  } else {
+    bottomSelect.disabled = false;
+  }
+}
+
+async function setBottom(part) {
+  await loadOutfitPiece('bottom', part);
+}
+
+async function setHair(styleName) {
+  if (currentHair) {
+    currentHair.parent && currentHair.parent.remove(currentHair);
+    currentHair = null;
+  }
+  tintUniforms.length = 0;
+  if (!styleName) return;
+  let gltf = hairCache[styleName];
+  if (!gltf) {
+    gltf = await loadGLB(`/out/hair/${styleName}.glb`);
+    hairCache[styleName] = gltf;
+  }
+  const hairObj = gltf.scene.clone(true);
+  hairObj.traverse(n => { if (n.isMesh) applyHairMaterialFixes(n, renderer); });
+  currentHair = hairObj;
+
+  const attach = document.getElementById('attachToggle').checked;
+  if (attach && headBone) {
+    scene.add(hairObj); // attach() needs world matrices current; add at scene level first
+    headBone.updateWorldMatrix(true, false);
+    hairObj.updateMatrixWorld(true);
+    headBone.attach(hairObj);
+  } else {
+    scene.add(hairObj);
+  }
+}
+
+document.getElementById('hairSelect').addEventListener('change', e => setHair(e.target.value));
+document.getElementById('topSelect').addEventListener('change', e => setTop(e.target.value));
+document.getElementById('bottomSelect').addEventListener('change', e => setBottom(e.target.value));
+document.getElementById('attachToggle').addEventListener('change', () => setHair(document.getElementById('hairSelect').value));
+
+const presetColors = ['#1b1310','#3b2314','#5a3222','#7a4a25','#a86b2e','#c9a24a','#8c1f1f','#5b2a86','#d94f9c','#e8e8e8'];
+const swatchesEl = document.getElementById('swatches');
+presetColors.forEach(hex => {
+  const b = document.createElement('button');
+  b.style.background = hex;
+  b.addEventListener('click', () => { document.getElementById('colorPicker').value = hex; setHairTint(hex); });
+  swatchesEl.appendChild(b);
+});
+document.getElementById('colorPicker').addEventListener('input', e => setHairTint(e.target.value));
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight, true);
+});
+
+window.sceneObj = scene;
+window.THREE = THREE;
+window.cam = camera;
+window.ctrls = controls;
+window.getCurrentHair = () => currentHair;
+init();
+</script>
+</body>
+</html>

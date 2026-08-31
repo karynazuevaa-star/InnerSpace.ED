@@ -1,0 +1,203 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>body preview</title>
+<style>
+html,body{margin:0;width:100vw;height:100vh;background:#3a3a3a;font-family:sans-serif;overflow:hidden;}
+canvas{display:block;width:100%;height:100%;}
+#controls{position:absolute;top:8px;left:8px;z-index:3;background:rgba(0,0,0,0.6);padding:12px;border-radius:8px;color:#fff;width:260px;}
+#controls label{display:block;font-size:12px;margin-top:10px;}
+#controls input[type=range]{width:100%;}
+#controls .row{display:flex;justify-content:space-between;font-size:11px;opacity:0.8;}
+</style>
+</head>
+<body>
+<div id="controls">
+  <div><b>Body morph targets</b></div>
+  <label>Вес: <span id="wVal">0</span></label>
+  <input type="range" id="wSlider" min="-1" max="1" step="0.05" value="0">
+  <label>Живот: <span id="bVal">0</span></label>
+  <input type="range" id="bSlider" min="-1" max="1" step="0.05" value="0">
+  <label>Грудь: <span id="brVal">0</span></label>
+  <input type="range" id="brSlider" min="-1" max="1" step="0.05" value="0">
+  <label style="display:flex;align-items:center;gap:6px;margin-top:14px;">
+    <input type="checkbox" id="idleToggle" checked style="width:auto;"> Поза ожидания (не T-pose)
+  </label>
+  <div class="row" style="margin-top:10px"><span id="meshInfo"></span></div>
+</div>
+<canvas id="c"></canvas>
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(1);
+renderer.setSize(window.innerWidth, window.innerHeight, true);
+
+const scene = new THREE.Scene();
+scene.add(new THREE.AmbientLight(0xffffff, 1.1));
+const dir = new THREE.DirectionalLight(0xffffff, 2.0);
+dir.position.set(2,4,6); scene.add(dir);
+const dir2 = new THREE.DirectionalLight(0xffffff, 1.0);
+dir2.position.set(-3,2,-4); scene.add(dir2);
+
+const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.05, 100);
+const controls = new OrbitControls(camera, canvas);
+
+let bodyMeshes = [];
+let sceneRoot = null;
+
+// Relaxed standing ("idle/waiting") pose, ported from the sibling Innerspace
+// project's already-tuned RELAXED_ARM_BONES (src/components/avatarAnimation.tsx) -
+// same MPFB "default" rig bone names, so the values transfer as-is. This is
+// just the static base pose (arms down, slight elbow/wrist/finger curl),
+// not that project's full spring-physics idle micro-motion/scratch system.
+const FINGER_RELAX_DEGREES = { 2: [5,3,2], 3: [7,4,2], 4: [8,5,3], 5: [10,6,4] };
+const FINGER_CURL_BONES = ['L','R'].flatMap(side =>
+  [2,3,4,5].flatMap(finger =>
+    FINGER_RELAX_DEGREES[finger].map((curl, segmentIndex) => ({
+      name: `finger${finger}-${segmentIndex+1}${side}`,
+      degrees: [
+        curl + (side === 'R' ? 2 : 0),
+        0,
+        segmentIndex === 0
+          ? (side === 'L' ? 1 : -1) * ({2:-3,3:-1,4:0.8,5:2.5}[finger] ?? 0)
+          : 0,
+      ],
+    }))
+  )
+);
+const RELAXED_ARM_BONES = [
+  { name: 'upperarm01L', degrees: [-1, 4, -34] },
+  { name: 'upperarm01R', degrees: [-1.5, -5, 32] },
+  { name: 'lowerarm01L', degrees: [-29, 0, -0.5] },
+  { name: 'lowerarm01R', degrees: [-28.5, 0, 0.8] },
+  { name: 'wristL', degrees: [0.4, 1, -0.3] },
+  { name: 'wristR', degrees: [0.5, -1.5, 0.3] },
+  { name: 'finger1-1L', degrees: [5, 0, -9] },
+  { name: 'finger1-2L', degrees: [4, 0, 0] },
+  { name: 'finger1-1R', degrees: [7, 0, 11] },
+  { name: 'finger1-2R', degrees: [5, 0, 0] },
+  { name: 'metacarpal1L', degrees: [0, 0, -9] },
+  { name: 'metacarpal2L', degrees: [0, 0, -3] },
+  { name: 'metacarpal3L', degrees: [0, 0, 2] },
+  { name: 'metacarpal4L', degrees: [0, 0, 7] },
+  { name: 'metacarpal1R', degrees: [0, 0, 9] },
+  { name: 'metacarpal2R', degrees: [0, 0, 3] },
+  { name: 'metacarpal3R', degrees: [0, 0, -2] },
+  { name: 'metacarpal4R', degrees: [0, 0, -7] },
+  ...FINGER_CURL_BONES,
+];
+let restQuaternions = null;
+
+function captureRestPose() {
+  restQuaternions = new Map();
+  RELAXED_ARM_BONES.forEach(({name}) => {
+    const bone = sceneRoot.getObjectByName(name);
+    if (bone) restQuaternions.set(name, bone.quaternion.clone());
+  });
+  console.log('idle pose: found', restQuaternions.size, '/', RELAXED_ARM_BONES.length, 'bones');
+}
+
+function applyIdlePose(enabled) {
+  if (!sceneRoot || !restQuaternions) return;
+  RELAXED_ARM_BONES.forEach(({name, degrees}) => {
+    const bone = sceneRoot.getObjectByName(name);
+    const rest = restQuaternions.get(name);
+    if (!bone || !rest) return;
+    if (enabled) {
+      const [x,y,z] = degrees;
+      const relax = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z)
+      ));
+      bone.quaternion.copy(rest).multiply(relax);
+    } else {
+      bone.quaternion.copy(rest);
+    }
+  });
+}
+
+new GLTFLoader().load('/out/body/body.glb', (gltf) => {
+  const obj = gltf.scene;
+  scene.add(obj);
+  sceneRoot = obj;
+  window.sceneRoot = obj;
+  obj.traverse(n => {
+    if (n.isMesh) {
+      n.material.side = THREE.FrontSide;
+      if (n.morphTargetDictionary && Object.keys(n.morphTargetDictionary).length) {
+        bodyMeshes.push(n);
+      }
+      console.log('mesh', n.name, 'morph dict', n.morphTargetDictionary);
+    }
+  });
+  captureRestPose();
+  applyIdlePose(document.getElementById('idleToggle').checked);
+  // Box3.setFromObject reads geometry.boundingBox (rest-pose, unskinned) for
+  // a SkinnedMesh - unreliable once bones are re-posed. Human body in
+  // MakeHuman's meter-scale units is consistently ~1.7-1.8 tall with the
+  // root near the feet - a fixed framing is more robust than auto-fit here.
+  camera.position.set(0, 0.9, 3.4);
+  controls.target.set(0, 0.9, 0);
+  camera.lookAt(0, 0.9, 0);
+  document.getElementById('meshInfo').textContent =
+    bodyMeshes.length ? bodyMeshes.length + ' morph-bearing primitives, ' +
+      Object.keys(bodyMeshes[0].morphTargetDictionary).length + ' targets each' : 'no mesh';
+  function loop(){ controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); }
+  loop();
+}, undefined, (err) => console.error('load error', err));
+
+function setMorph(name, value) {
+  for (const mesh of bodyMeshes) {
+    const idx = mesh.morphTargetDictionary[name];
+    if (idx === undefined) continue;
+    mesh.morphTargetInfluences[idx] = value;
+  }
+}
+
+function applyPair(baseName, signedValue) {
+  const v = Math.max(-1, Math.min(1, signedValue));
+  setMorph(baseName + '_incr', Math.max(0, v));
+  setMorph(baseName + '_decr', Math.max(0, -v));
+}
+
+function updateWeight(v) {
+  applyPair('weight_waist', v);
+  applyPair('weight_hips', v);
+  applyPair('weight_torso_horiz', v);
+  applyPair('weight_torso_depth', v);
+  applyPair('weight_arm', v * 0.7);
+  applyPair('weight_thigh', v * 0.8);
+}
+function updateBelly(v) {
+  applyPair('belly', v);
+  applyPair('belly_soft', v * 0.6);
+}
+function updateBreast(v) {
+  setMorph('breast_bigger', Math.max(0, v));
+  setMorph('breast_smaller', Math.max(0, -v));
+}
+
+const wSlider = document.getElementById('wSlider');
+const bSlider = document.getElementById('bSlider');
+const brSlider = document.getElementById('brSlider');
+wSlider.addEventListener('input', e => { document.getElementById('wVal').textContent = e.target.value; updateWeight(parseFloat(e.target.value)); });
+bSlider.addEventListener('input', e => { document.getElementById('bVal').textContent = e.target.value; updateBelly(parseFloat(e.target.value)); });
+brSlider.addEventListener('input', e => { document.getElementById('brVal').textContent = e.target.value; updateBreast(parseFloat(e.target.value)); });
+document.getElementById('idleToggle').addEventListener('change', e => applyIdlePose(e.target.checked));
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight, true);
+});
+</script>
+</body>
+</html>
