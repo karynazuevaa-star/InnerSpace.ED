@@ -10,7 +10,7 @@ interface LanguageContextValue {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>('ru');
+  const [lang, setLang] = useState<Lang>('en');
 
   const value = useMemo<LanguageContextValue>(() => {
     const t = (key: string, vars?: Record<string, string | number>) => {
