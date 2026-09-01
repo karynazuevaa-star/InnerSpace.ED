@@ -9,7 +9,9 @@ import { Hair, type HairStyle } from './Hair';
 import { HeadAttachmentLegacy } from './HeadAttachmentLegacy';
 import { OutfitPiece } from './OutfitPiece';
 import { Room } from './Room';
+import { SceneLoader } from './SceneLoader';
 import { GazeHeatmap } from '../gaze/GazeHeatmap';
+import { useLanguage } from '../i18n/LanguageContext';
 import type { BodyMorphState } from '../avatar/bodyMorphs';
 
 /**
@@ -36,6 +38,7 @@ export interface AvatarConfig {
 }
 
 export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
+  const { t } = useLanguage();
   return (
     <Canvas shadows camera={{ position: [0, 0.9, 2.4], fov: 35 }} style={{ background: '#382f3f' }}>
       <ambientLight intensity={0.95} color="#fff2e2" />
@@ -53,25 +56,21 @@ export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
       <Room />
       <group name="avatar-root">
         <AvatarProvider>
-          <Suspense fallback={null}>
+          {/* One Suspense boundary for every mesh that makes up the avatar
+              (body, outfits, eyes, eyebrows, eyelashes, hair) instead of a
+              separate one per piece - React only swaps the fallback out
+              once ALL of them are ready, so the avatar appears fully
+              assembled in one frame rather than limbs/hair/eyes popping in
+              individually as each glTF happens to finish loading. */}
+          <Suspense fallback={<SceneLoader label={t('loading.avatar')} />}>
             <BodyLegacy morphs={config.morphs} />
             <OutfitPiece url={config.topUrl} morphs={config.morphs} />
             <OutfitPiece url={config.bottomUrl} morphs={config.morphs} />
-          </Suspense>
-          <Suspense fallback={null}>
             <HeadAttachmentLegacy url="/models-legacy/eyes.glb" />
-          </Suspense>
-          <Suspense fallback={null}>
             <HeadAttachmentLegacy url="/models-legacy/eyebrows.glb" transparent />
-          </Suspense>
-          <Suspense fallback={null}>
             <HeadAttachmentLegacy url="/models-legacy/eyelashes.glb" transparent />
+            {config.hairStyle && <Hair style={config.hairStyle} color={config.hairColor} />}
           </Suspense>
-          {config.hairStyle && (
-            <Suspense fallback={null}>
-              <Hair style={config.hairStyle} color={config.hairColor} />
-            </Suspense>
-          )}
           {/* No IdleAnimation here - this page is the "before animation,
               and everything since" comparison baseline. StaticRelaxedPose
               is a one-time pose, not a per-frame animation: it swaps the

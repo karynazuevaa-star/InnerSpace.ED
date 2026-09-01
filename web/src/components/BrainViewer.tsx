@@ -4,6 +4,7 @@ import { useGLTF, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useLanguage } from '../i18n/LanguageContext';
+import { SceneLoader } from './SceneLoader';
 import {
   BRAIN_REGIONS,
   BRAIN_INTRO_RU,
@@ -153,8 +154,9 @@ function BrainMesh({ selectedId, onSelect }: { selectedId: string; onSelect: (id
 }
 
 function Scene({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<SceneLoader label={t('loading.brain')} />}>
       <BrainMesh selectedId={selectedId} onSelect={onSelect} />
     </Suspense>
   );

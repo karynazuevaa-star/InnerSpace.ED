@@ -52,6 +52,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     'brain.ed': 'При РПП',
     'brain.sources': 'Источники',
 
+    'loading.avatar': 'Собираем аватар…',
+    'loading.brain': 'Загружаем модель мозга…',
+
     'body.heading': 'Тело',
     'body.weight': 'Вес',
     'body.belly': 'Живот',
@@ -138,6 +141,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     'brain.starvation': 'During starvation',
     'brain.ed': 'In eating disorders',
     'brain.sources': 'Sources',
+
+    'loading.avatar': 'Building avatar…',
+    'loading.brain': 'Loading brain model…',
 
     'body.heading': 'Body',
     'body.weight': 'Weight',
