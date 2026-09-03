@@ -66,15 +66,16 @@ export const BRAIN_REGIONS: BrainRegion[] = [
     normalEn:
       "The brain's primary interoceptive cortex. It gathers and integrates signals from internal organs (heartbeat, breathing, stomach fullness) and from taste, turning them into a coherent felt sense of what's happening inside the body.",
     starvationRu:
-      'Хроническое недоедание снижает точность и надёжность этих внутренних сигналов. Организму, который систематически недополучает энергию, становится труднее ясно ощущать, что значит быть по-настоящему голодным или сытым.',
+      'Во время голода работа островковой доли меняется. После продолжительного голодания её передняя часть сильнее реагирует на изображения еды, а связи островковой доли с другими областями мозга перестраиваются. Вероятно, так недостаток энергии делает сигналы, связанные с пищей, более заметными и значимыми.',
     starvationEn:
-      "Chronic undereating reduces the accuracy and reliability of these internal signals. A body that's systematically underfed finds it harder to clearly sense what real hunger or fullness feels like.",
+      "During starvation, the insula's activity changes. After extended fasting, its anterior part responds more strongly to images of food, and the insula's connections with other brain regions reorganize. This is thought to be how an energy deficit makes food-related signals more salient and significant.",
     edRu:
       'При нервной анорексии исследования многократно находят изменённую активность островковой доли при обработке телесных и вкусовых сигналов, а также при взгляде на собственное тело. Это согласуется с клинически описанным «интероцептивным дефицитом», трудностью точно ощущать и интерпретировать голод, сытость и другие телесные сигналы, характерной для расстройства.',
     edEn:
       'In anorexia nervosa, studies repeatedly find altered insula activity when processing bodily and taste signals, and when viewing one\'s own body. This matches the clinically described "interoceptive deficit," the difficulty accurately sensing and interpreting hunger, fullness, and other body signals that is central to the disorder.',
     sources: [
-      'Kaye W.H. — Anorexia nervosa and the insula',
+      'Kerem L. et al. — Modulation of neural fMRI responses to visual food cues by overeating and fasting interventions: A preliminary study, Physiological Reports, 2021',
+      'Wright H. et al. — Differential effects of hunger and satiety on insular cortex and hypothalamic functional connectivity, European Journal of Neuroscience, 2016',
       'Anorexia nervosa as a disorder of the subcortical–cortical interoceptive-self, PMC, 2022',
       'Altered Insula Activity during Visceral Interoception in Weight-Restored Patients with Anorexia Nervosa, Neuropsychopharmacology, 2015',
     ],
