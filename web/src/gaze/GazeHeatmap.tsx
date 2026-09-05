@@ -50,6 +50,23 @@ export function GazeHeatmap({ active, visible }: { active: boolean; visible: boo
   }, []);
 
   useEffect(() => {
+    // Room's <ContactShadows> re-renders the WHOLE scene into a depth
+    // buffer every frame to keep the floor shadow live (frames=Infinity),
+    // which normally goes unnoticed since the avatar itself is static. But
+    // this component's point cloud keeps growing while gaze tracking is
+    // active, and that growing geometry got baked into the shadow capture
+    // too - the contact shadow visibly reshaped itself as points
+    // accumulated, reading as "the floor is moving." Layer 1 keeps these
+    // points out of that pass: cameras and the ContactShadows helper's own
+    // internal shadow camera only look at layer 0 by default, so putting
+    // the points there and opting the main camera in explicitly is enough
+    // to make them invisible to that one render pass without touching
+    // Room.tsx or the drei component at all.
+    if (pointsRef.current) pointsRef.current.layers.set(1);
+    camera.layers.enable(1);
+  }, [camera]);
+
+  useEffect(() => {
     if (!active) return;
     return subscribeGaze((sample) => {
       const rect = gl.domElement.getBoundingClientRect();

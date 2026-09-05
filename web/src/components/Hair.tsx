@@ -7,7 +7,7 @@ import { makeHairTintable } from '../avatar/hairTint';
 export type HairStyle = 'long' | 'medium' | 'short';
 
 export function Hair({ style, color }: { style: HairStyle; color: string }) {
-  const { scene } = useGLTF(`/models/hair/${style}.glb?v=19`);
+  const { scene } = useGLTF(`/models/hair/${style}.glb?v=22`);
   const { headBone } = useAvatarContext();
 
   useEffect(() => {

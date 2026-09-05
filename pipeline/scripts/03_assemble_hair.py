@@ -190,7 +190,18 @@ def make_variant(base_obj, name, keep_fraction, z_min, z_max):
         clear_inner=True,
         clear_outer=False,
     )
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    # No recalc_face_normals here (there used to be one) - this hairstyle is
+    # hundreds of separate thin strand cards, not one continuous shell, and
+    # that op's "which way is outside" heuristic needs a coherent volume to
+    # work from. On this geometry it silently flipped ~40% of the faces
+    # right around the cut on "short" (verified: sampled normals pointing
+    # into the head instead of away from it) - invisible on "medium" and
+    # "long", where the flipped patch stays low enough on the head to sit
+    # under a thick drape of still-intact hair above it, but on "short" that
+    # patch IS most of the visible crown, and unlit-from-inside faces read
+    # as a solid black gap when viewed from above. bisect_plane's own split
+    # faces already inherit their parent's (correct) normal, so recalculating
+    # anything here was never actually necessary.
     bm.to_mesh(dup.data)
     bm.free()
     for p in dup.data.polygons:

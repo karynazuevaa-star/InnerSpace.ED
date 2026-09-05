@@ -40,6 +40,8 @@ export interface AvatarConfig {
 export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
   const { t } = useLanguage();
   return (
+    <>
+    <SceneLoader label={t('loading.avatar')} />
     <Canvas shadows camera={{ position: [0, 0.9, 2.4], fov: 35 }} style={{ background: '#382f3f' }}>
       <ambientLight intensity={0.95} color="#fff2e2" />
       <directionalLight
@@ -62,7 +64,7 @@ export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
               once ALL of them are ready, so the avatar appears fully
               assembled in one frame rather than limbs/hair/eyes popping in
               individually as each glTF happens to finish loading. */}
-          <Suspense fallback={<SceneLoader label={t('loading.avatar')} />}>
+          <Suspense fallback={null}>
             <BodyLegacy morphs={config.morphs} />
             <OutfitPiece url={config.topUrl} morphs={config.morphs} />
             <OutfitPiece url={config.bottomUrl} morphs={config.morphs} />
@@ -85,5 +87,6 @@ export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
         <Bloom luminanceThreshold={0.75} luminanceSmoothing={0.25} mipmapBlur intensity={0.4} radius={0.5} />
       </EffectComposer>
     </Canvas>
+    </>
   );
 }

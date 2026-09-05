@@ -154,9 +154,8 @@ function BrainMesh({ selectedId, onSelect }: { selectedId: string; onSelect: (id
 }
 
 function Scene({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
-  const { t } = useLanguage();
   return (
-    <Suspense fallback={<SceneLoader label={t('loading.brain')} />}>
+    <Suspense fallback={null}>
       <BrainMesh selectedId={selectedId} onSelect={onSelect} />
     </Suspense>
   );
@@ -185,6 +184,7 @@ export function BrainViewer() {
     <div className="brain-page">
       <div className="brain-viewer">
         <div className="scene-pane brain-scene-pane">
+          <SceneLoader label={t('loading.brain')} />
           <Canvas camera={{ position: [0, 0.1, 2.0], fov: 38 }} style={{ background: '#0d0a1a' }} shadows>
             <ambientLight intensity={0.6} color="#cdb9ff" />
             <directionalLight position={[2, 2.5, 2]} intensity={1.15} color="#a897ff" castShadow />
