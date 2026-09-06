@@ -593,7 +593,12 @@ export function SeatedPose() {
         hipL.getWorldPosition(hipLPos);
         hipR.getWorldPosition(hipRPos);
         const sideways = hipRPos.clone().sub(hipLPos).normalize();
-        const forward = new THREE.Vector3().crossVectors(sideways, new THREE.Vector3(0, 1, 0)).normalize();
+        // crossVectors(sideways, up) pointed the knees backward instead of
+        // forward (reported directly, with screenshots - the torso leaning
+        // forward to compensate for knees tucked behind was the tell) -
+        // this is the other perpendicular horizontal direction from that
+        // same pair of vectors.
+        const forward = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), sideways).normalize();
 
         aimBoneAt(scene, SEATED_LEG_BONES.upperlegL, SEATED_LEG_BONES.upperlegL, SEATED_LEG_BONES.lowerlegL, forward);
         aimBoneAt(scene, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.lowerlegR, forward);
