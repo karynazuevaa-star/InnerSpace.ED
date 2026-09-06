@@ -248,7 +248,7 @@ PRESETS = [
         "muscle": 0.4,
         "hair": "long01", "hair_length": "long",
         "hair_color": (0.10, 0.06, 0.04),
-        "top": "hoodie", "bottom": "tightjeans",
+        "top": "hoodie", "bottom": "tightjeans", "shoes": "shoes05",
     },
     {
         "name": "npc_heavier",
@@ -260,7 +260,7 @@ PRESETS = [
         "muscle": 0.4,
         "hair": "bob01", "hair_length": "long",
         "hair_color": (0.05, 0.04, 0.03),
-        "top": "croptop", "bottom": "shorts",
+        "top": "croptop", "bottom": "shorts", "shoes": "shoes05",
     },
     {
         "name": "npc_average",
@@ -272,7 +272,7 @@ PRESETS = [
         "muscle": 0.5,
         "hair": "wavy_bob", "hair_length": "long",
         "hair_color": (0.35, 0.22, 0.10),
-        "top": "skinsuit", "bottom": None,
+        "top": "skinsuit", "bottom": None, "shoes": "shoes05",
     },
     {
         "name": "npc_curvier",
@@ -284,7 +284,7 @@ PRESETS = [
         "muscle": 0.45,
         "hair": "long01", "hair_length": "long",
         "hair_color": (0.20, 0.09, 0.28),
-        "top": "bodysuit", "bottom": "shorts",
+        "top": "bodysuit", "bottom": "shorts", "shoes": "shoes05",
     },
     {
         "name": "npc_lean",
@@ -296,7 +296,7 @@ PRESETS = [
         "muscle": 0.6,
         "hair": "afro01", "hair_length": "long",
         "hair_color": (0.05, 0.04, 0.035),
-        "top": "hoodie", "bottom": "shorts",
+        "top": "hoodie", "bottom": "shorts", "shoes": "shoes05",
     },
     {
         "name": "npc_male_lean",
@@ -308,7 +308,7 @@ PRESETS = [
         "muscle": 0.55,
         "hair": "short01", "hair_length": "long",
         "hair_color": (0.08, 0.06, 0.05),
-        "top": "male_tshirt", "bottom": "male_jeans",
+        "top": "male_tshirt", "bottom": "male_jeans", "shoes": "shoes05",
     },
     {
         "name": "npc_male_average",
@@ -320,7 +320,7 @@ PRESETS = [
         "muscle": 0.5,
         "hair": "short01", "hair_length": "long",
         "hair_color": (0.03, 0.02, 0.02),
-        "top": "male_polo", "bottom": "male_trousers",
+        "top": "male_polo", "bottom": "male_trousers", "shoes": "shoes05",
     },
     {
         "name": "npc_male_heavier",
@@ -332,7 +332,7 @@ PRESETS = [
         "muscle": 0.4,
         "hair": "short01", "hair_length": "long",
         "hair_color": (0.30, 0.20, 0.10),
-        "top": "male_tshirt", "bottom": "male_trousers",
+        "top": "male_tshirt", "bottom": "male_trousers", "shoes": "shoes05",
     },
     {
         "name": "npc_male_muscular",
@@ -344,7 +344,7 @@ PRESETS = [
         "muscle": 0.85,
         "hair": "short01", "hair_length": "long",
         "hair_color": (0.04, 0.03, 0.03),
-        "top": "male_polo", "bottom": "male_jeans",
+        "top": "male_polo", "bottom": "male_jeans", "shoes": "shoes05",
     },
     # The four presets below are direct recreations of characters the user
     # designed herself in the sibling project's AvatarBuilder tool (a live
@@ -442,7 +442,17 @@ PRESETS = [
         "morphs": female(),
         "muscle": 0.15,
         "macro_weight": 0.85,
-        "hair": "elvs_island_princess_hair",
+        # elvs_island_princess_hair (the user's original recipe) has a bug in
+        # its own source texture - hairtex1.png bakes in an unrelated bright
+        # pink decorative-flower graphic in the same atlas as the hair strand
+        # texture, and the crown/parting UVs sample into that region instead
+        # of the strand area, showing as a jagged pink/skin-toned patch right
+        # at the hairline (reported directly, confirmed via a dedicated
+        # close-up render - see git history). wavy_bob is a similarly long,
+        # dark, center-parted style with a plain single-tone strand texture
+        # (no baked decorations to collide with), used here as a clean
+        # substitute rather than attempting to hand-fix third-party UVs.
+        "hair": "wavy_bob",
         "eyebrows": "eyebrow006",
         "eyelashes": "eyelashes03",
         "eye_color": "deepblue",
@@ -773,6 +783,19 @@ def lift_hem_clear_of_bottom_layer(top_obj, bottom_obj, clearance=0.012, max_lif
 
 MANUAL_HEM_FIX_ITEMS = {"knitted_sweater"}
 
+# push_clothes_outward runs once, against the T-pose the body is fitted in -
+# it can't see how far clothing and body will later diverge once the
+# skeleton actually moves. Reported directly: two tiny symmetric skin
+# patches at the underarm/shoulder seam on male_casualsuit01, invisible in
+# this pipeline's own T-pose preview renders but visible once the NPC's
+# real idle-pose animation lowers the arms (confirmed - not visible until
+# checked in the live scene at that pose, from a close, steep, looking-down
+# angle matching where it was first spotted). A boosted clearance for just
+# this item's initial T-pose fit gives it more slack to still clear the
+# body once posed, without the blanket increase the sibling project's own
+# testing already found ineffective/risky for thin-trim geometry generally.
+OUTFIT_CLEARANCE_OVERRIDE = {"male_casualsuit": 0.008}
+
 # Ported as-is from the sibling project's mpfb-assemble-character-
 # experimental.py, along with push_clothes_outward and
 # flatten_body_detail_material below - a general "skin showing through
@@ -894,7 +917,7 @@ def flatten_body_detail_material(basemesh, material_name_substring, geometry_inw
         mesh.update()
 
 
-def fit_outfit(HumanService, basemesh, mhclo_path, body_bvh=None):
+def fit_outfit(HumanService, basemesh, mhclo_path, body_bvh=None, clearance=CLOTHES_CLEARANCE_METERS):
     obj = HumanService.add_mhclo_asset(
         mhclo_path, basemesh,
         asset_type="Clothes",
@@ -906,7 +929,7 @@ def fit_outfit(HumanService, basemesh, mhclo_path, body_bvh=None):
     )
     simplify_materials_for_export(obj)
     force_opaque_materials(obj)
-    push_clothes_outward(obj, body_bvh=body_bvh)
+    push_clothes_outward(obj, amount=clearance, body_bvh=body_bvh)
     return obj
 
 
@@ -1023,7 +1046,8 @@ def build_preset(HumanService, TargetService, preset):
     fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO[preset.get("eyebrows", "eyebrow002")], "Eyebrows", alpha_mask=0.3)
     fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO[preset.get("eyelashes", "eyelashes01")], "Eyelashes", alpha_mask=0.3)
 
-    top_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]], body_bvh=body_bvh)
+    top_clearance = OUTFIT_CLEARANCE_OVERRIDE.get(preset["top"], CLOTHES_CLEARANCE_METERS)
+    top_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]], body_bvh=body_bvh, clearance=top_clearance)
     bottom_obj = None
     if preset["bottom"]:
         bottom_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["bottom"]], body_bvh=body_bvh)
