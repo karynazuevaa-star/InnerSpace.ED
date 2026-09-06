@@ -830,7 +830,31 @@ def build_preset(HumanService, TargetService, preset):
 
     apply_skin(HumanService, basemesh, preset["skin"])
 
-    target_weights = sliders_to_targets(**preset["morphs"])
+    morphs = dict(preset["morphs"])
+    if "macro_weight" in preset and morphs.get("weight", 0.0) == 0.0:
+        # macro_details["weight"] alone (MakeHuman's own built-in weight
+        # macro, blended between a handful of hand-sculpted min/avg/max
+        # weight body sculpts) turns out to move the mesh by only ~2cm max
+        # vertex displacement end-to-end - confirmed by direct measurement
+        # (depsgraph-evaluated coordinates at weight=0.15 vs weight=0.85,
+        # everything else held fixed). That's nowhere near a visible
+        # "thin vs heavy" difference, and it's NOT what makes npc_heavier/
+        # npc_male_heavier above actually read as heavy - those get their
+        # whole look from these same custom measure targets
+        # (weight_waist_incr etc, scaled by a slider value up to +-0.7).
+        # A macro_weight-only preset was reading as visibly thin regardless
+        # of the Light/Average/Heavy picked (reported directly: an
+        # "Average muscle, Heavy weight" recipe came out thin) because none
+        # of that slider-driven shaping was happening at all. Deriving an
+        # equivalent slider weight from macro_weight here - only when the
+        # preset didn't already specify one explicitly - brings recipe-
+        # based presets in line with the hand-tuned ones instead of all
+        # reading close to "average" no matter which weight was picked.
+        # Scale chosen to land near npc_heavier/npc_male_heavier's own
+        # weight=0.7 at macro_weight's max (0.85) and npc_thinner's -0.6 at
+        # its min (0.15), not derived from any formula in the source data.
+        morphs["weight"] = (preset["macro_weight"] - 0.5) * 1.8
+    target_weights = sliders_to_targets(**morphs)
     for shape_name, weight in target_weights.items():
         rel_path = BODY_TARGET_FILES[shape_name]
         path = os.path.join(MPFB_TARGETS_DIR, rel_path)

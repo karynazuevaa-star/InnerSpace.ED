@@ -8,10 +8,15 @@ import { useLanguage } from '../../i18n/LanguageContext';
 
 const NPCS: NpcConfig[] = [
   { position: [-1.6, 0, -4.5], rotationY: Math.PI * 0.15, preset: 'npc_thinner' },
-  { position: [0.9, 0, -3.05], rotationY: -Math.PI * 0.6, preset: 'npc_heavier' },
-  { position: [3.35, 0, -1.35], rotationY: Math.PI * 0.9, preset: 'npc_average' },
-  { position: [-3.35, 0, 1.35], rotationY: -Math.PI * 0.35, preset: 'npc_curvier' },
-  { position: [0.1, 0, -4.5], rotationY: -Math.PI * 0.1, preset: 'npc_lean' },
+  { position: [0.9, 0, -3.05], rotationY: -Math.PI * 0.6, preset: 'npc_male_average' },
+  { position: [3.35, 0, -1.35], rotationY: Math.PI * 0.9, preset: 'npc_male_heavier' },
+  { position: [-3.35, 0, 1.35], rotationY: -Math.PI * 0.35, preset: 'npc_polka_skirt' },
+  { position: [0.1, 0, -4.5], rotationY: -Math.PI * 0.1, preset: 'npc_asian_dress' },
+  { position: [-3.35, 0, -1.35], rotationY: Math.PI * 0.4, preset: 'npc_tiered_dress' },
+  { position: [3.35, 0, 1.35], rotationY: -Math.PI * 0.9, preset: 'npc_knit_sweater' },
+  { position: [-0.9, 0, -3.05], rotationY: Math.PI * 0.6, preset: 'npc_native_skirt' },
+  { position: [2.2, 0, 2.0], rotationY: -Math.PI * 0.5, preset: 'npc_lace_ruffle' },
+  { position: [-2.2, 0, 2.0], rotationY: Math.PI * 0.5, preset: 'npc_male_casualsuit' },
 ];
 
 const BOUNDS: RoomBounds = { minX: -4.5, maxX: 4.5, minZ: -5, maxZ: 3.2 };
