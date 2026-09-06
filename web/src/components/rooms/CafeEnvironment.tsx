@@ -56,6 +56,7 @@ export function CafeEnvironment() {
       <Table position={[-3.6, 0, -2.0]} />
       <Chair position={[-3.6, 0, -1.1]} rotationY={0} />
       <Chair position={[-2.7, 0, -2.0]} rotationY={-Math.PI / 2} />
+      <Chair position={[-4.5, 0, -2.0]} rotationY={Math.PI / 2} />
       <PendantLight position={[-3.6, 2.6, -2.0]} />
     </group>
   );

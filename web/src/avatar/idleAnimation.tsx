@@ -82,6 +82,44 @@ function applyRel(
   }
 }
 
+// applyRel's `Euler(x,y,z) ` delta is applied in the bone's OWN rest frame
+// (rest * delta) - fine for the small standing-sway angles elsewhere in
+// this file, but this rig's leg bones turned out to carry a large twist in
+// their own rest orientation relative to their parent (confirmed directly:
+// upperleg01L's rest quaternion is nowhere near identity), so a "rotate 90°
+// about local X" delta there doesn't mean "flex the hip 90° forward" at
+// all - it spins around whatever oddly-tilted axis that bone's own X
+// happens to be, which is what collapsed the legs into the torso on the
+// first two sign attempts. What's actually wanted is "rotate by this angle
+// about the PARENT's local X axis" (the anatomical hinge direction, and
+// consistent for every bone in a sanely-built humanoid rig regardless of
+// that individual bone's own twist) - expressed as axisRotation * rest
+// (pre-, not post-multiplied), not rest * delta.
+function applyHinge(
+  scenes: Iterable<THREE.Object3D>,
+  restMap: WeakMap<THREE.Object3D, Map<string, THREE.Quaternion>>,
+  name: string,
+  axis: THREE.Vector3,
+  angle: number,
+) {
+  const axisRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+  for (const scene of scenes) {
+    const bone = scene.getObjectByName(name);
+    if (!bone) continue;
+    let rests = restMap.get(scene);
+    if (!rests) {
+      rests = new Map();
+      restMap.set(scene, rests);
+    }
+    let rest = rests.get(name);
+    if (!rest) {
+      rest = bone.quaternion.clone();
+      rests.set(name, rest);
+    }
+    bone.quaternion.copy(axisRotation).multiply(rest);
+  }
+}
+
 // Meshes that carry morph targets, cached per scene the first time they're
 // looked up (called every frame for blinking, unlike bodyMorphs.ts's own
 // version of this traversal which only runs when a slider changes).
@@ -451,6 +489,106 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
     // which reads as a broken, googly-eyed look rather than a blink. A
     // proper fix would need a better eye asset with real eyelid coverage;
     // until then, not blinking looks far better than blinking badly.
+    applyMorphInfluence(scenes, 'eye_left_closure', 0);
+    applyMorphInfluence(scenes, 'eye_right_closure', 0);
+  });
+
+  return null;
+}
+
+// Hip pivot (upperleg01 head) sits at local Y~0.815 standing, measured
+// directly off the rig's edit-bone rest positions (see git history for the
+// measurement script/output) - thigh (upperleg01+02) is ~0.377m,
+// shin (lowerleg01+02) ~0.379m. A seated pose bends the hip +90°
+// (thigh swings from hanging straight down to horizontal-forward) and the
+// knee an equal and opposite -90° (relative to the now-horizontal thigh,
+// bringing the shin back to hanging straight down from the knee) - since
+// these two deltas cancel, the ANKLE ends up at hip_height - shin_length,
+// almost exactly back at its own standing height (measured ~0.068 either
+// way, a ~2mm difference), and the foot needs no extra compensation to stay
+// flat: the net rotation carried down the chain to it is back to zero.
+// Only the knee moves forward by the thigh length, tucking the shins under
+// the character as expected. To land the pelvis at a chair's seat height
+// (0.45 in CafeEnvironment.tsx) without moving the ankle, the character's
+// own group position needs to drop by (hip standing height - seat height)
+// - see SEATED_HIP_DROP_METERS, applied in NpcAvatar.tsx, not here (this
+// component only ever poses bones, never repositions the group).
+const SEATED_LEG_BONES = {
+  upperlegL: 'upperleg01L',
+  upperlegR: 'upperleg01R',
+  lowerlegL: 'lowerleg01L',
+  lowerlegR: 'lowerleg01R',
+} as const;
+
+export const SEATED_HIP_DROP_METERS = 0.365;
+
+const SEATED_ARM_BONES: { name: string; degrees: [number, number, number] }[] = [
+  // Own baseline (not RELAXED_ARM_BONES's standing one - that swings the
+  // upper arm out from the shoulder for hip clearance a seated pose with
+  // hands in the lap doesn't need, and its forearm bend is tuned to land
+  // the hand near the hip rather than the lap). Elbow bent enough to bring
+  // the forearm forward and down onto the thighs instead of hanging at the
+  // side into the (now horizontal) leg.
+  { name: 'upperarm01L', degrees: [4, 6, -14] },
+  { name: 'upperarm01R', degrees: [4, -6, 14] },
+  { name: 'lowerarm01L', degrees: [-72, 0, -1] },
+  { name: 'lowerarm01R', degrees: [-72, 0, 1] },
+  { name: 'wristL', degrees: [-4, 2, 0] },
+  { name: 'wristR', degrees: [-4, -2, 0] },
+];
+
+/**
+ * Static seated pose (legs bent into a chair, hands resting on the thighs)
+ * plus the same breathing bob IdleAnimation uses - no weight-shift/arm-
+ * gesture/finger-fidget layer, since those are all standing-specific
+ * (built around a supporting-leg concept that doesn't apply once both legs
+ * are already bent under a chair). Re-poses only when first mounted (the
+ * bend angles are fixed), same guarded-useFrame pattern StaticRelaxedPose
+ * uses for the same reason - no per-frame work needed for a pose that
+ * never changes.
+ */
+export function SeatedPose() {
+  const { posableScenes } = useAvatarContext();
+  const posed = useRef(false);
+
+  useFrame(({ clock }) => {
+    const scenes = posableScenes;
+    if (scenes.size === 0) return;
+
+    if (!posed.current) {
+      const hipAngle = THREE.MathUtils.degToRad(90);
+      const kneeAngle = THREE.MathUtils.degToRad(-90);
+      const X_AXIS = new THREE.Vector3(1, 0, 0);
+      applyHinge(scenes, restMap, SEATED_LEG_BONES.upperlegL, X_AXIS, hipAngle);
+      applyHinge(scenes, restMap, SEATED_LEG_BONES.upperlegR, X_AXIS, hipAngle);
+      applyHinge(scenes, restMap, SEATED_LEG_BONES.lowerlegL, X_AXIS, kneeAngle);
+      applyHinge(scenes, restMap, SEATED_LEG_BONES.lowerlegR, X_AXIS, kneeAngle);
+      SEATED_ARM_BONES.forEach(({ name, degrees: [x, y, z] }) => {
+        applyRel(scenes, restMap, name, THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z));
+      });
+      posed.current = true;
+    }
+
+    // Same breathing bob as IdleAnimation - see that function's own comment
+    // on why this is a position bob only, no rotational tilt.
+    const t = clock.getElapsedTime();
+    const cycle = (t % 4.8) / 4.8;
+    const breathe = cycle < 0.32
+      ? THREE.MathUtils.smoothstep(cycle, 0, 0.32)
+      : 1 - THREE.MathUtils.smoothstep(cycle, 0.32, 1);
+    for (const scene of scenes) {
+      const chestBone = scene.getObjectByName('spine02');
+      if (!chestBone) continue;
+      let restChest = restChestState.get(scene);
+      if (!restChest) {
+        restChest = { quaternion: chestBone.quaternion.clone(), position: chestBone.position.clone() };
+        restChestState.set(scene, restChest);
+      }
+      chestBone.quaternion.copy(restChest.quaternion);
+      chestBone.position.copy(restChest.position);
+      chestBone.position.y += breathe * 0.016;
+    }
+
     applyMorphInfluence(scenes, 'eye_left_closure', 0);
     applyMorphInfluence(scenes, 'eye_right_closure', 0);
   });

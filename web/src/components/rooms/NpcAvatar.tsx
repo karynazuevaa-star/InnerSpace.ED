@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { AvatarProvider, useAvatarContext } from '../../avatar/AvatarContext';
-import { primeIdleAnimationRestPose, IdleAnimation } from '../../avatar/idleAnimation';
+import { primeIdleAnimationRestPose, IdleAnimation, SeatedPose, SEATED_HIP_DROP_METERS } from '../../avatar/idleAnimation';
 import { cloneGltfScene } from '../../avatar/cloneGltf';
 
 /**
@@ -31,6 +31,12 @@ export interface NpcConfig {
   position: [number, number, number];
   rotationY: number;
   preset: NpcPresetName;
+  /** Bends the legs into a chair pose and drops the pelvis to seat height
+   * (SEATED_HIP_DROP_METERS) instead of standing - see idleAnimation.tsx's
+   * SeatedPose for how the drop amount was derived from the rig's own bone
+   * lengths. `position` still names the floor spot under the chair, same
+   * as a standing NPC - the seat drop is applied on top of it here. */
+  seated?: boolean;
 }
 
 function presetUrl(preset: NpcPresetName): string {
@@ -58,11 +64,13 @@ function NpcPreset({ preset }: { preset: NpcPresetName }) {
 }
 
 export function NpcAvatar({ config }: { config: NpcConfig }) {
+  const [x, y, z] = config.position;
+  const groupY = config.seated ? y - SEATED_HIP_DROP_METERS : y;
   return (
-    <group position={config.position} rotation={[0, config.rotationY, 0]}>
+    <group position={[x, groupY, z]} rotation={[0, config.rotationY, 0]}>
       <AvatarProvider>
         <NpcPreset preset={config.preset} />
-        <IdleAnimation weight={0} butt={0} legs={0} />
+        {config.seated ? <SeatedPose /> : <IdleAnimation weight={0} butt={0} legs={0} />}
       </AvatarProvider>
     </group>
   );
