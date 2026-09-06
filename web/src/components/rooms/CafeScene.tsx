@@ -7,16 +7,25 @@ import { SceneLoader } from '../SceneLoader';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 const NPCS: NpcConfig[] = [
-  { position: [-1.6, 0, -4.5], rotationY: Math.PI * 0.15, preset: 'npc_thinner' },
-  { position: [0.9, 0, -3.05], rotationY: -Math.PI * 0.6, preset: 'npc_male_average' },
-  { position: [3.35, 0, -1.35], rotationY: Math.PI * 0.9, preset: 'npc_male_heavier' },
-  { position: [-3.35, 0, 1.35], rotationY: -Math.PI * 0.35, preset: 'npc_polka_skirt' },
-  { position: [0.1, 0, -4.5], rotationY: -Math.PI * 0.1, preset: 'npc_asian_dress' },
-  { position: [-3.35, 0, -1.35], rotationY: Math.PI * 0.4, preset: 'npc_tiered_dress' },
-  { position: [3.35, 0, 1.35], rotationY: -Math.PI * 0.9, preset: 'npc_knit_sweater' },
-  { position: [-0.9, 0, -3.05], rotationY: Math.PI * 0.6, preset: 'npc_native_skirt' },
-  { position: [2.2, 0, 2.0], rotationY: -Math.PI * 0.5, preset: 'npc_lace_ruffle' },
-  { position: [-2.2, 0, 2.0], rotationY: Math.PI * 0.5, preset: 'npc_male_casualsuit' },
+  // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together
+  { position: [1.6, 0, -2.5], rotationY: 0, preset: 'npc_lace_ruffle' },
+  { position: [2.5, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier' },
+
+  // Table 2 (3.4,-0.4): the other two guys together
+  { position: [3.4, 0, 0.5], rotationY: 0, preset: 'npc_male_average' },
+  { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit' },
+
+  // Table 3 (-2.6,1.4): thinner alone
+  { position: [-2.6, 0, 2.3], rotationY: 0, preset: 'npc_thinner' },
+
+  // Table 4 (0.5,1.8): polka_skirt + tiered_dress together
+  { position: [0.5, 0, 2.7], rotationY: 0, preset: 'npc_polka_skirt' },
+  { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress' },
+
+  // Table 5 (-3.6,-2.0): the remaining three together
+  { position: [-3.6, 0, -1.1], rotationY: 0, preset: 'npc_asian_dress' },
+  { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt' },
+  { position: [-4.3, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater' },
 ];
 
 const BOUNDS: RoomBounds = { minX: -4.5, maxX: 4.5, minZ: -5, maxZ: 3.2 };
