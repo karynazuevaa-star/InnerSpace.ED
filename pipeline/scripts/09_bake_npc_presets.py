@@ -452,25 +452,17 @@ PRESETS = [
         "morphs": female(),
         "muscle": 0.15,
         "macro_weight": 0.85,
-        # elvs_island_princess_hair (the user's original recipe) has a bug in
-        # its own source texture - hairtex1.png bakes in an unrelated bright
-        # pink decorative-flower graphic in the same atlas as the hair strand
-        # texture, and the crown/parting UVs sample into that region instead
-        # of the strand area, showing as a jagged pink/skin-toned patch right
-        # at the hairline (reported directly, confirmed via a dedicated
-        # close-up render - see git history). Swapped to wavy_bob first, but
-        # that turned out to have its own (much smaller, same-colored-as-
-        # scalp so easy to miss in a first pass) gap at the crown between two
-        # curl clumps - confirmed it's not an alpha-threshold artifact
-        # (lowering alpha_mask from 0.5 to 0.15 changed nothing) but an
-        # actual mesh gap in that asset. Checked four alternatives via close
-        # crown renders before picking one: elvs_daisy_hair has the same kind
-        # of small crown gap, culturalibre_hair_14 and long01 are fully
-        # solid, elvs_adrienne_hair is fully solid AND already proven at
-        # long/center-parted styling - settled on elvs_adrienne_hair, tinted
-        # dark since its own native color is light blonde/pink.
-        "hair": "elvs_adrienne_hair",
-        "hair_color": (0.08, 0.06, 0.05),
+        # elvs_island_princess_hair's own crown geometry bundles in a
+        # separate, disconnected decorative flower/bow piece (confirmed via
+        # mesh-island analysis: two islands of 1148/482 verts right at the
+        # crown, versus ~165 verts for each individual hair-strand island -
+        # its bright pink texture is what made the crown read as a jagged
+        # pink/skin-toned patch, see git history for the earlier back-and-
+        # forth trying other hairstyles and even test-deleting those two
+        # islands outright). Explicitly confirmed with the user that the
+        # flower is fine to keep as-is - this is the plain, unmodified
+        # asset, matching her original recipe.
+        "hair": "elvs_island_princess_hair",
         "eyebrows": "eyebrow006",
         "eyelashes": "eyelashes03",
         "eye_color": "deepblue",
