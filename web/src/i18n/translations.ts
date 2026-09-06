@@ -6,6 +6,7 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     'nav.home': 'Главная',
     'nav.avatar': 'Аватар',
+    'nav.rooms': 'Локации',
     'nav.materials': 'Материалы',
     'nav.tests': 'Тесты',
 
@@ -90,12 +91,27 @@ export const translations: Record<Lang, Record<string, string>> = {
     'avatarConsent.text': 'Этот раздел предназначен для лицензированных специалистов, работающих с расстройствами пищевого поведения. Переходя дальше, вы подтверждаете, что являетесь таким специалистом и не имеете претензий к InnerSpace.ED.',
     'avatarConsent.remember': 'Подтверждаю и не спрашивайте меня об этом снова',
     'avatarConsent.confirm': 'Подтверждаю',
+
+    'loading.room': 'Собираем локацию…',
+
+    'rooms.heading': 'Локации',
+    'rooms.intro': 'Места, которых люди с РПП часто избегают - кафе, бассейн, спортзал - здесь можно потренироваться находиться в них в безопасной обстановке, среди аватаров разных типов телосложения.',
+    'rooms.cafe.title': 'Кафе',
+    'rooms.cafe.description': 'Небольшое кафе с посетителями за столиками - тренировка нахождения рядом с едой и другими людьми.',
+    'rooms.pool.title': 'Бассейн',
+    'rooms.pool.description': 'Бассейн с людьми разных типов телосложения в купальниках.',
+    'rooms.gym.title': 'Спортзал',
+    'rooms.gym.description': 'Зал с тренирующимися людьми разных типов телосложения.',
+    'rooms.comingSoon': 'Скоро',
+    'rooms.back': '← Локации',
+    'rooms.cafeHint': 'Перетаскивайте, чтобы оглядеться, WASD или стрелки - чтобы пройтись по залу.',
   },
   en: {
     'app.subtitle': 'Body visualization for therapeutic work',
 
     'nav.home': 'Home',
     'nav.avatar': 'Avatar',
+    'nav.rooms': 'Rooms',
     'nav.materials': 'Materials',
     'nav.tests': 'Tests',
 
@@ -180,5 +196,19 @@ export const translations: Record<Lang, Record<string, string>> = {
     'avatarConsent.text': 'This section is meant for licensed specialists working with eating disorders. By continuing, you confirm that you are such a specialist and have no claims against InnerSpace.ED.',
     'avatarConsent.remember': "I confirm, and don't ask me again",
     'avatarConsent.confirm': 'Confirm',
+
+    'loading.room': 'Building the room…',
+
+    'rooms.heading': 'Rooms',
+    'rooms.intro': 'Places people with EDs often avoid - a cafe, a pool, a gym - to practice being in, safely, surrounded by avatars of different body types.',
+    'rooms.cafe.title': 'Cafe',
+    'rooms.cafe.description': 'A small cafe with people at the tables - practice being around food and others.',
+    'rooms.pool.title': 'Pool',
+    'rooms.pool.description': 'A pool with people of different body types in swimwear.',
+    'rooms.gym.title': 'Gym',
+    'rooms.gym.description': 'A gym floor with people of different body types working out.',
+    'rooms.comingSoon': 'Coming soon',
+    'rooms.back': '← Rooms',
+    'rooms.cafeHint': 'Drag to look around, WASD or arrow keys to walk.',
   },
 };

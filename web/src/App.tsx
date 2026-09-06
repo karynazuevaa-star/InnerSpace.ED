@@ -6,6 +6,8 @@ import { AvatarToolPageLegacy } from './pages/AvatarToolPageLegacy';
 import { AvatarConsentGate } from './components/AvatarConsentGate';
 import { MaterialsPage } from './pages/MaterialsPage';
 import { TestsPage } from './pages/TestsPage';
+import { RoomsPage } from './pages/RoomsPage';
+import { CafeRoomPage } from './pages/CafeRoomPage';
 import { LanguageProvider } from './i18n/LanguageContext';
 import { TourProvider } from './tour/TourContext';
 import { TourOverlay } from './components/TourOverlay';
@@ -41,6 +43,16 @@ function AppShell() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/materials" element={<MaterialsPage />} />
             <Route path="/tests" element={<TestsPage />} />
+            <Route path="/rooms" element={<RoomsPage />} />
+            <Route
+              path="/rooms/cafe"
+              element={
+                <>
+                  <CafeRoomPage />
+                  <AvatarConsentGate />
+                </>
+              }
+            />
           </Routes>
         )}
       </main>

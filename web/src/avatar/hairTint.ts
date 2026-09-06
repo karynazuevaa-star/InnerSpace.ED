@@ -27,6 +27,18 @@ export function makeHairTintable(material: THREE.MeshStandardMaterial, initialCo
         diffuseColor.rgb = mix(diffuseColor.rgb, tinted, uTintStrength);`
       );
   };
+  // Three caches compiled shader programs by a key that, by default,
+  // ignores onBeforeCompile entirely - two materials patched this way
+  // normally look identical to that cache (same map/lights/etc). With only
+  // ever one hair instance mounted (the dressing-room tool) that collision
+  // never came up, but rooms with several simultaneous hair-wearing NPCs
+  // (see components/rooms/NpcAvatar.tsx) hit it constantly: one NPC's
+  // compiled program - with its OWN uTintColor baked into the wrong
+  // uniform slot - would get silently reused for another's material,
+  // rendering as flat black or a mis-tinted/oversized-looking blob.
+  // Keying the cache by this material's own uuid guarantees every tinted
+  // hair material compiles (and stays) separate.
+  material.customProgramCacheKey = () => material.uuid;
   material.needsUpdate = true;
 
   return {
