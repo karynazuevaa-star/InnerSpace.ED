@@ -2,64 +2,95 @@
 Blender headless script: bake several complete, ready-to-wear background
 people for the exposure-practice rooms (see web/src/components/rooms/) -
 body + hair + eyes/eyebrows/eyelashes + outfit, all sharing ONE armature,
-exported as a single glb per preset. Unlike the dressing-room tool's
-body.glb/hair/*.glb/outfits/*.glb (deliberately separate files, reassembled
-and reparented at runtime so the tool can swap hair/outfit live), these
-NPCs never change outfit after the page loads - baking everything into one
-file at build time sidesteps the runtime "reparent hair onto this NPC's own
-head bone" step entirely, which is where the multi-instance hair bug in
-NpcAvatar.tsx traced back to.
+exported as a single glb per preset, plus a quick front-view PNG preview of
+each so they can be reviewed without opening a browser. Unlike the
+dressing-room tool's body.glb/hair/*.glb/outfits/*.glb (deliberately
+separate files, reassembled and reparented at runtime so the tool can swap
+hair/outfit live), these NPCs never change outfit after the page loads -
+baking everything into one file at build time sidesteps the runtime
+"reparent hair onto this NPC's own head bone" step entirely, which is
+where the multi-instance hair bug in NpcAvatar.tsx traced back to.
 
-Body shape reuses the exact slider formula from bodyMorphs.ts (applyBodyMorphs)
-so these NPCs read as the same "person" the dressing-room body represents,
-just at different points on the sliders - not a different character design.
+Female presets' body shape reuses the exact slider formula from
+bodyMorphs.ts (applyBodyMorphs) so they read as the same "person" the
+dressing-room body represents, just at different points on the sliders.
+Male presets use the same target set minus breast (not meaningful on a
+male macro-detail body) - MakeHuman's weight/muscle/torso/thigh/etc
+targets are shared across both, only breast and the base skin/clothes/
+hair differ per gender.
+
+Skin/clothing/hair assets for male presets came from the sibling
+"InnerSpace" project's much larger MakeHuman asset library (see
+Projects/Новая папка/public/avatar-assets/raw) - this project's own
+assets_src only ever had female-fitted pieces. Licenses: skins and the
+short01 hairstyle are CC0 (makehuman_system_assets_cc0 /
+skins02_cc0); the male jeans, trousers and t-shirt are CC-BY (pants02_ccby
+/ shirts03_ccby) and need attribution alongside the landing page's
+existing CC-BY credits if these ship - the polo shirt (shirts01_cc0) is
+CC0.
 
 Blender's glTF exporter embeds every source texture at its original size
-untouched (mostly 2048x2048 PNGs shared with the dressing-room assets) -
-fine for one avatar filling the screen, but a raw export here comes out
-~20MB per preset, and several of those loaded into one scene at once was
-enough to trigger WebGL context loss while testing this in a resource-
-constrained browser. Since these are small background figures that are
-never seen up close, every texture gets downsized to 512x512 and
-re-encoded as WebP right after export (via the @gltf-transform/cli, run
-as a subprocess - `npx` must be on PATH), which took these files down to
-~2MB each with no visible quality loss at the sizes they're actually
-rendered at. Only textures are touched - geometry, skinning and morph
-targets are left exactly as exported, so this step is safe to skip (pass
---no-optimize) if you need to inspect an unmodified export.
+untouched (mostly 2048x2048 PNGs) - fine for one avatar filling the
+screen, but a raw export here comes out ~20MB per preset, and several of
+those loaded into one scene at once was enough to trigger WebGL context
+loss while testing this in a resource-constrained browser. Since these
+are small background figures that are never seen up close, every texture
+gets downsized to 512x512 and re-encoded as WebP right after export (via
+@gltf-transform/cli, run as a subprocess - `npx` must be on PATH), which
+took these files down to ~2MB each with no visible quality loss at the
+sizes they're actually rendered at. Only textures are touched - geometry,
+skinning and morph targets are left exactly as exported, so this step is
+safe to skip (pass --no-optimize) if you need to inspect an unmodified
+export.
 
 Run with:
   /Applications/Blender.app/Contents/MacOS/Blender --background --python \
-    pipeline/scripts/09_bake_npc_presets.py [-- --no-optimize]
+    pipeline/scripts/09_bake_npc_presets.py [-- --no-optimize] [--no-preview]
 """
 import os
 import subprocess
 import sys
 import bpy
 import bmesh
+import mathutils
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # pipeline/
 OUT_DIR = os.path.join(ROOT, "out", "npc")
+PREVIEW_DIR = os.path.join(ROOT, "out", "npc_preview")
 os.makedirs(OUT_DIR, exist_ok=True)
+os.makedirs(PREVIEW_DIR, exist_ok=True)
 
 _EXTENSIONS_ROOT = os.path.expanduser("~/Library/Application Support/Blender/4.2/extensions")
 MPFB_TARGETS_DIR = os.environ.get(
     "MPFB_TARGETS_DIR",
     os.path.join(_EXTENSIONS_ROOT, "blender_org", "mpfb", "data", "targets"),
 )
-SKIN_MHMAT = os.path.join(
-    ROOT, "assets_src", "skin", "darthfurby_caucasian_female",
-    "darthfurby_caucasian_female_noeyes.mhmat",
-)
-HAIR_MHCLO = os.path.join(ROOT, "assets_src", "hair", "long01", "long01.mhclo")
-EYES_MHCLO = os.path.join(ROOT, "assets_src", "eyes", "high-poly", "high-poly.mhclo")
-EYEBROWS_MHCLO = os.path.join(ROOT, "assets_src", "eyebrows", "eyebrow002", "eyebrow002.mhclo")
-EYELASHES_MHCLO = os.path.join(ROOT, "assets_src", "eyelashes", "eyelashes01", "eyelashes01.mhclo")
-OUTFITS_DIR = os.path.join(ROOT, "assets_src", "outfits")
+ASSETS = os.path.join(ROOT, "assets_src")
+
+SKIN_MHMAT = {
+    "female_caucasian": os.path.join(ASSETS, "skin", "darthfurby_caucasian_female", "darthfurby_caucasian_female_noeyes.mhmat"),
+    "male_light": os.path.join(ASSETS, "skin", "toigo_light_skin_male_bronze", "toigo_light_skin_male_bronze.mhmat"),
+    "male_dark": os.path.join(ASSETS, "skin", "mindfront_skin_male_african_middleage", "mindfront_skin_male_african_middleage.mhmat"),
+}
+HAIR_MHCLO = {
+    "long01": os.path.join(ASSETS, "hair", "long01", "long01.mhclo"),
+    "short01": os.path.join(ASSETS, "hair", "short01", "short01.mhclo"),
+}
+EYES_MHCLO = os.path.join(ASSETS, "eyes", "high-poly", "high-poly.mhclo")
+EYEBROWS_MHCLO = os.path.join(ASSETS, "eyebrows", "eyebrow002", "eyebrow002.mhclo")
+EYELASHES_MHCLO = os.path.join(ASSETS, "eyelashes", "eyelashes01", "eyelashes01.mhclo")
+OUTFITS_DIR = os.path.join(ASSETS, "outfits")
 OUTFIT_MHCLO = {
     "hoodie": os.path.join(OUTFITS_DIR, "elvs_hooded_sweat_jacket1", "elvs_hooded_sweat_jacket1.mhclo"),
     "croptop": os.path.join(OUTFITS_DIR, "punkduck_sleeveless_crop_top", "punkduck_sleeveless_crop_top.mhclo"),
     "tightjeans": os.path.join(OUTFITS_DIR, "punkduck_female_tight_jeans", "punkduck_female_tight_jeans.mhclo"),
+    "bodysuit": os.path.join(OUTFITS_DIR, "punkduck_female_strapless_bodysuit", "punkduck_female_strapless_bodysuit.mhclo"),
+    "skinsuit": os.path.join(OUTFITS_DIR, "matcreator_mc-skinsuit_2022", "matcreator_mc-skinsuit_2022.mhclo"),
+    "shorts": os.path.join(OUTFITS_DIR, "cortu_jeans_shorts", "cortu_jeans_shorts.mhclo"),
+    "male_tshirt": os.path.join(OUTFITS_DIR, "elvs_male_logo_tshirt1", "elvs_male_logo_tshirt1.mhclo"),
+    "male_polo": os.path.join(OUTFITS_DIR, "namuhekam_male_polo_shirt", "namuhekam_male_polo_shirt.mhclo"),
+    "male_jeans": os.path.join(OUTFITS_DIR, "punkduck_male_classic_jeans", "punkduck_male_classic_jeans.mhclo"),
+    "male_trousers": os.path.join(OUTFITS_DIR, "mindfront_male_trousers_1", "mindfront_male_trousers_1.mhclo"),
 }
 
 # (rel path under MPFB_TARGETS_DIR, raw target name) - same source list as
@@ -128,46 +159,112 @@ def sliders_to_targets(weight=0.0, belly=0.0, waist=0.0, breast=0.0, arms=0.0, l
     return out
 
 
+FEMALE_MORPHS = dict(weight=0, belly=0, waist=0, arms=0, legs=0, butt=0, breast=0, face=0)
+MALE_MORPHS = dict(weight=0, belly=0, waist=0, arms=0, legs=0, butt=0, breast=-1, face=0)  # breast=-1: smallest, closest to a flat male chest
+
+
+def female(**over):
+    d = dict(FEMALE_MORPHS)
+    d.update(over)
+    return d
+
+
+def male(**over):
+    d = dict(MALE_MORPHS)
+    d.update(over)
+    return d
+
+
 PRESETS = [
     {
         "name": "npc_thinner",
-        "morphs": dict(weight=-0.6, belly=-0.3, waist=-0.4, arms=-0.3, legs=-0.3, butt=-0.2, breast=-0.1, face=-0.2),
+        "gender": 0.0,
+        "skin": "female_caucasian",
+        "morphs": female(weight=-0.6, belly=-0.3, waist=-0.4, arms=-0.3, legs=-0.3, butt=-0.2, breast=-0.1, face=-0.2),
         "muscle": 0.4,
-        "hair_length": "long",
+        "hair": "long01", "hair_length": "long",
         "hair_color": (0.10, 0.06, 0.04),
-        "top": "hoodie",
+        "top": "hoodie", "bottom": "tightjeans",
     },
     {
         "name": "npc_heavier",
-        "morphs": dict(weight=0.7, belly=0.5, waist=0.5, arms=0.4, legs=0.5, butt=0.4, breast=0.3, face=0.3),
+        "gender": 0.0,
+        "skin": "female_caucasian",
+        "morphs": female(weight=0.7, belly=0.5, waist=0.5, arms=0.4, legs=0.5, butt=0.4, breast=0.3, face=0.3),
         "muscle": 0.4,
-        "hair_length": "short",
+        "hair": "long01", "hair_length": "short",
         "hair_color": (0.05, 0.04, 0.03),
-        "top": "croptop",
+        "top": "croptop", "bottom": "tightjeans",
     },
     {
         "name": "npc_average",
-        "morphs": dict(weight=0.0, belly=0.0, waist=0.0, arms=0.0, legs=0.0, butt=0.0, breast=0.0, face=0.0),
+        "gender": 0.0,
+        "skin": "female_caucasian",
+        "morphs": female(),
         "muscle": 0.5,
-        "hair_length": "medium",
+        "hair": "long01", "hair_length": "medium",
         "hair_color": (0.35, 0.22, 0.10),
-        "top": "hoodie",
+        "top": "skinsuit", "bottom": None,
     },
     {
         "name": "npc_curvier",
-        "morphs": dict(weight=0.2, belly=0.1, waist=0.1, arms=0.0, legs=0.3, butt=0.7, breast=0.5, face=0.1),
+        "gender": 0.0,
+        "skin": "female_caucasian",
+        "morphs": female(weight=0.2, belly=0.1, waist=0.1, arms=0.0, legs=0.3, butt=0.7, breast=0.5, face=0.1),
         "muscle": 0.45,
-        "hair_length": "long",
+        "hair": "long01", "hair_length": "long",
         "hair_color": (0.20, 0.09, 0.28),
-        "top": "croptop",
+        "top": "croptop", "bottom": "shorts",
     },
     {
         "name": "npc_lean",
-        "morphs": dict(weight=-0.2, belly=-0.2, waist=-0.1, arms=0.1, legs=0.1, butt=0.1, breast=-0.1, face=-0.1),
+        "gender": 0.0,
+        "skin": "female_caucasian",
+        "morphs": female(weight=-0.2, belly=-0.2, waist=-0.1, arms=0.1, legs=0.1, butt=0.1, breast=-0.1, face=-0.1),
         "muscle": 0.6,
-        "hair_length": "short",
+        "hair": "long01", "hair_length": "short",
         "hair_color": (0.55, 0.42, 0.15),
-        "top": "hoodie",
+        "top": "hoodie", "bottom": "shorts",
+    },
+    {
+        "name": "npc_male_lean",
+        "gender": 1.0,
+        "skin": "male_light",
+        "morphs": male(weight=-0.3, waist=-0.3, arms=0.1, legs=0.0),
+        "muscle": 0.55,
+        "hair": "short01", "hair_length": "long",
+        "hair_color": (0.08, 0.06, 0.05),
+        "top": "male_tshirt", "bottom": "male_jeans",
+    },
+    {
+        "name": "npc_male_average",
+        "gender": 1.0,
+        "skin": "male_dark",
+        "morphs": male(),
+        "muscle": 0.5,
+        "hair": "short01", "hair_length": "long",
+        "hair_color": (0.03, 0.02, 0.02),
+        "top": "male_polo", "bottom": "male_trousers",
+    },
+    {
+        "name": "npc_male_heavier",
+        "gender": 1.0,
+        "skin": "male_light",
+        "morphs": male(weight=0.7, belly=0.5, waist=0.4, arms=0.3, legs=0.3),
+        "muscle": 0.4,
+        "hair": "short01", "hair_length": "long",
+        "hair_color": (0.30, 0.20, 0.10),
+        "top": "male_tshirt", "bottom": "male_trousers",
+    },
+    {
+        "name": "npc_male_muscular",
+        "gender": 1.0,
+        "skin": "male_dark",
+        "morphs": male(weight=0.2, arms=0.6, legs=0.4, waist=-0.1),
+        "muscle": 0.85,
+        "hair": "short01", "hair_length": "long",
+        "hair_color": (0.04, 0.03, 0.03),
+        "top": "male_polo", "bottom": "male_jeans",
     },
 ]
 
@@ -198,8 +295,8 @@ def bake_current_shape_to_basis(basemesh):
     basemesh.data.update()
 
 
-def apply_skin(HumanService, basemesh):
-    HumanService.set_character_skin(SKIN_MHMAT, basemesh, skin_type="MAKESKIN")
+def apply_skin(HumanService, basemesh, skin_key):
+    HumanService.set_character_skin(SKIN_MHMAT[skin_key], basemesh, skin_type="MAKESKIN")
     simplify_materials_for_export(basemesh)
     force_opaque_materials(basemesh)
 
@@ -350,7 +447,7 @@ HAIR_LENGTH_FRACTION = {"long": 1.0, "medium": 0.55, "short": 0.28}
 def build_preset(HumanService, TargetService, preset):
     clear_scene()
     macro_details = TargetService.get_default_macro_info_dict()
-    macro_details["gender"] = 0.0
+    macro_details["gender"] = preset["gender"]
     macro_details["age"] = 0.5
     macro_details["muscle"] = preset["muscle"]
     macro_details["weight"] = 0.5
@@ -360,7 +457,7 @@ def build_preset(HumanService, TargetService, preset):
 
     armature_obj = HumanService.add_builtin_rig(basemesh, "default", import_weights=True)
 
-    apply_skin(HumanService, basemesh)
+    apply_skin(HumanService, basemesh, preset["skin"])
 
     target_weights = sliders_to_targets(**preset["morphs"])
     for shape_name, weight in target_weights.items():
@@ -389,7 +486,7 @@ def build_preset(HumanService, TargetService, preset):
     # weights already baked into vertex groups keyed by BONE name, not by
     # basemesh vertex index, so nothing downstream cares that basemesh
     # itself later loses vertices.
-    hair_obj = fit_rigid_bodypart(HumanService, basemesh, HAIR_MHCLO, "Hair", tint=preset["hair_color"])
+    hair_obj = fit_rigid_bodypart(HumanService, basemesh, HAIR_MHCLO[preset["hair"]], "Hair", tint=preset["hair_color"])
     cut_hair_length(hair_obj, HAIR_LENGTH_FRACTION[preset["hair_length"]])
 
     fit_rigid_bodypart(HumanService, basemesh, EYES_MHCLO, "Eyes")
@@ -397,15 +494,60 @@ def build_preset(HumanService, TargetService, preset):
     fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO, "Eyelashes")
 
     fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]])
-    fit_outfit(HumanService, basemesh, OUTFIT_MHCLO["tightjeans"])
+    if preset["bottom"]:
+        fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["bottom"]])
 
     remove_helper_geometry(basemesh)
 
+    render_preview(preset["name"])
     export_glb(preset["name"])
 
 
+def render_preview(name):
+    """A quick front-view EEVEE render of everything currently in the scene,
+    saved as a PNG next to the glb - lets a person pick which presets to use
+    without needing a browser (this session's testing kept hitting flaky
+    WebGL context loss in the sandboxed browser used for that)."""
+    scene = bpy.context.scene
+    cam_data = bpy.data.cameras.new(name="preview_cam")
+    cam_obj = bpy.data.objects.new("preview_cam", cam_data)
+    bpy.context.collection.objects.link(cam_obj)
+    cam_obj.location = (0, -2.6, 1.05)
+    cam_obj.rotation_euler = (mathutils.Euler((1.5708, 0, 0)))
+    cam_data.lens = 50
+    scene.camera = cam_obj
+
+    key = bpy.data.lights.new(name="preview_key", type="SUN")
+    key.energy = 3.0
+    key_obj = bpy.data.objects.new("preview_key", key)
+    key_obj.location = (2, -3, 4)
+    key_obj.rotation_euler = (0.9, 0, 0.5)
+    bpy.context.collection.objects.link(key_obj)
+
+    fill = bpy.data.lights.new(name="preview_fill", type="SUN")
+    fill.energy = 1.2
+    fill_obj = bpy.data.objects.new("preview_fill", fill)
+    fill_obj.rotation_euler = (1.0, 0, -2.2)
+    bpy.context.collection.objects.link(fill_obj)
+
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.resolution_x = 512
+    scene.render.resolution_y = 768
+    scene.render.film_transparent = False
+    scene.world = bpy.data.worlds.new("preview_world")
+    scene.world.color = (0.25, 0.24, 0.23)
+
+    out_path = os.path.join(PREVIEW_DIR, f"{name}.png")
+    scene.render.filepath = out_path
+    bpy.ops.render.render(write_still=True)
+    print(f"Rendered preview {out_path}")
+
+
 def export_glb(name):
-    bpy.ops.object.select_all(action="SELECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in bpy.data.objects:
+        if obj.type in {"MESH", "ARMATURE"}:
+            obj.select_set(True)
     out_path = os.path.join(OUT_DIR, f"{name}.glb")
     bpy.ops.export_scene.gltf(
         filepath=out_path,
@@ -442,7 +584,12 @@ def optimize_textures(glb_path):
 def main():
     from bl_ext.blender_org.mpfb.services import HumanService, TargetService
 
+    only = [a for a in sys.argv if a.startswith("--only=")]
+    names = only[0].split("=", 1)[1].split(",") if only else None
+
     for preset in PRESETS:
+        if names and preset["name"] not in names:
+            continue
         build_preset(HumanService, TargetService, preset)
 
     print("DONE")

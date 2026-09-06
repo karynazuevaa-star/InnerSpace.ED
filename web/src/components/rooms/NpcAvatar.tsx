@@ -19,7 +19,10 @@ import { cloneGltfScene } from '../../avatar/cloneGltf';
  * preset still needs cloning (see cloneGltf.ts) so several NPCs can use
  * the same preset file without fighting over one shared Object3D.
  */
-export const NPC_PRESET_NAMES = ['npc_thinner', 'npc_heavier', 'npc_average', 'npc_curvier', 'npc_lean'] as const;
+export const NPC_PRESET_NAMES = [
+  'npc_thinner', 'npc_heavier', 'npc_average', 'npc_curvier', 'npc_lean',
+  'npc_male_lean', 'npc_male_average', 'npc_male_heavier', 'npc_male_muscular',
+] as const;
 export type NpcPresetName = (typeof NPC_PRESET_NAMES)[number];
 
 export interface NpcConfig {
