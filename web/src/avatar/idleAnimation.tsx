@@ -82,42 +82,65 @@ function applyRel(
   }
 }
 
-// applyRel's `Euler(x,y,z) ` delta is applied in the bone's OWN rest frame
-// (rest * delta) - fine for the small standing-sway angles elsewhere in
-// this file, but this rig's leg bones turned out to carry a large twist in
-// their own rest orientation relative to their parent (confirmed directly:
-// upperleg01L's rest quaternion is nowhere near identity), so a "rotate 90°
-// about local X" delta there doesn't mean "flex the hip 90° forward" at
-// all - it spins around whatever oddly-tilted axis that bone's own X
-// happens to be, which is what collapsed the legs into the torso on the
-// first two sign attempts. What's actually wanted is "rotate by this angle
-// about the PARENT's local X axis" (the anatomical hinge direction, and
-// consistent for every bone in a sanely-built humanoid rig regardless of
-// that individual bone's own twist) - expressed as axisRotation * rest
-// (pre-, not post-multiplied), not rest * delta.
-function applyHinge(
-  scenes: Iterable<THREE.Object3D>,
-  restMap: WeakMap<THREE.Object3D, Map<string, THREE.Quaternion>>,
-  name: string,
-  axis: THREE.Vector3,
-  angle: number,
+// A local-frame `Euler(x,y,z)` delta (applyRel's rest*delta) is fine for
+// the few-degree standing sway elsewhere in this file, but this rig's leg
+// bones carry a large twist in their own rest orientation relative to
+// their parent (confirmed directly: upperleg01L's rest quaternion is
+// nowhere near identity) - a guessed "rotate N degrees about local X"
+// spins around whatever oddly-tilted axis that bone's own X happens to be,
+// not any anatomically meaningful direction. Tried compensating with a
+// world/parent-frame axis instead (axisRotation * rest, not rest * delta) -
+// better (recognizably bent knees instead of collapsed/prone), but still
+// wrong on inspection: this bends only upperleg01/lowerleg01, the SHORT
+// first segment of a two-segment thigh/shin (upperleg01+02,
+// lowerleg01+02) - the same fixed-angle guess doesn't account for
+// whatever twist upperleg02/lowerleg02 carry relative to THEIR parents,
+// so the second segment doesn't reliably continue in the direction the
+// first segment's rotation assumed, which is what threw entire shins out
+// sideways/upward instead of settling under the character.
+//
+// This instead measures where the bone chain's own end point ACTUALLY is
+// (in world space, in whatever pose it's currently in) and computes
+// exactly the rotation that carries it to where it's supposed to be -
+// self-correcting regardless of any bone's own twist, since it never
+// assumes what "90 degrees" even means for this rig. `fromBoneName`
+// (typically the same bone being rotated, e.g. upperleg01 - its own head
+// is the pivot) and `endBoneName` (lowerleg01 for the hip, foot for the
+// knee) give the two points the current direction is measured between;
+// `desiredWorldDir` is the direction that segment should end up pointing.
+function aimBoneAt(
+  scene: THREE.Object3D,
+  boneName: string,
+  fromBoneName: string,
+  endBoneName: string,
+  desiredWorldDir: THREE.Vector3,
 ) {
-  const axisRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-  for (const scene of scenes) {
-    const bone = scene.getObjectByName(name);
-    if (!bone) continue;
-    let rests = restMap.get(scene);
-    if (!rests) {
-      rests = new Map();
-      restMap.set(scene, rests);
-    }
-    let rest = rests.get(name);
-    if (!rest) {
-      rest = bone.quaternion.clone();
-      rests.set(name, rest);
-    }
-    bone.quaternion.copy(axisRotation).multiply(rest);
-  }
+  const bone = scene.getObjectByName(boneName);
+  const fromBone = scene.getObjectByName(fromBoneName);
+  const endBone = scene.getObjectByName(endBoneName);
+  if (!bone || !fromBone || !endBone || !bone.parent) return;
+
+  const fromPos = new THREE.Vector3();
+  const endPos = new THREE.Vector3();
+  fromBone.getWorldPosition(fromPos);
+  endBone.getWorldPosition(endPos);
+  const currentDir = endPos.sub(fromPos).normalize();
+
+  // Rotation, expressed in WORLD space, that carries the segment's current
+  // direction to the desired one - independent of any bone's own local
+  // axis conventions.
+  const worldDelta = new THREE.Quaternion().setFromUnitVectors(currentDir, desiredWorldDir.clone().normalize());
+
+  // Convert that world-space delta into `bone`'s LOCAL space: applying a
+  // rotation in the world requires "un-rotating" by the parent's current
+  // world orientation first, applying the delta, then "re-rotating" back -
+  // the standard conjugation for moving a rotation between frames.
+  const parentWorldQuat = new THREE.Quaternion();
+  bone.parent.getWorldQuaternion(parentWorldQuat);
+  const localDelta = parentWorldQuat.clone().invert().multiply(worldDelta).multiply(parentWorldQuat);
+
+  bone.quaternion.premultiply(localDelta);
+  bone.updateMatrixWorld(true);
 }
 
 // Meshes that carry morph targets, cached per scene the first time they're
@@ -556,13 +579,27 @@ export function SeatedPose() {
     if (scenes.size === 0) return;
 
     if (!posed.current) {
-      const hipAngle = THREE.MathUtils.degToRad(90);
-      const kneeAngle = THREE.MathUtils.degToRad(-90);
-      const X_AXIS = new THREE.Vector3(1, 0, 0);
-      applyHinge(scenes, restMap, SEATED_LEG_BONES.upperlegL, X_AXIS, hipAngle);
-      applyHinge(scenes, restMap, SEATED_LEG_BONES.upperlegR, X_AXIS, hipAngle);
-      applyHinge(scenes, restMap, SEATED_LEG_BONES.lowerlegL, X_AXIS, kneeAngle);
-      applyHinge(scenes, restMap, SEATED_LEG_BONES.lowerlegR, X_AXIS, kneeAngle);
+      const DOWN = new THREE.Vector3(0, -1, 0);
+      for (const scene of scenes) {
+        const hipL = scene.getObjectByName(SEATED_LEG_BONES.upperlegL);
+        const hipR = scene.getObjectByName(SEATED_LEG_BONES.upperlegR);
+        if (!hipL || !hipR) continue;
+        // "Forward" derived from the character's own current hip-to-hip
+        // line (perpendicular to it and to world up) instead of assumed
+        // from some fixed model-space axis - self-correcting regardless of
+        // which way this particular NPC's group is rotated to face.
+        const hipLPos = new THREE.Vector3();
+        const hipRPos = new THREE.Vector3();
+        hipL.getWorldPosition(hipLPos);
+        hipR.getWorldPosition(hipRPos);
+        const sideways = hipRPos.clone().sub(hipLPos).normalize();
+        const forward = new THREE.Vector3().crossVectors(sideways, new THREE.Vector3(0, 1, 0)).normalize();
+
+        aimBoneAt(scene, SEATED_LEG_BONES.upperlegL, SEATED_LEG_BONES.upperlegL, SEATED_LEG_BONES.lowerlegL, forward);
+        aimBoneAt(scene, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.lowerlegR, forward);
+        aimBoneAt(scene, SEATED_LEG_BONES.lowerlegL, SEATED_LEG_BONES.lowerlegL, 'footL', DOWN);
+        aimBoneAt(scene, SEATED_LEG_BONES.lowerlegR, SEATED_LEG_BONES.lowerlegR, 'footR', DOWN);
+      }
       SEATED_ARM_BONES.forEach(({ name, degrees: [x, y, z] }) => {
         applyRel(scenes, restMap, name, THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z));
       });
