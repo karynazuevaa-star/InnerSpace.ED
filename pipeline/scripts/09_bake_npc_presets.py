@@ -448,11 +448,19 @@ PRESETS = [
         # texture, and the crown/parting UVs sample into that region instead
         # of the strand area, showing as a jagged pink/skin-toned patch right
         # at the hairline (reported directly, confirmed via a dedicated
-        # close-up render - see git history). wavy_bob is a similarly long,
-        # dark, center-parted style with a plain single-tone strand texture
-        # (no baked decorations to collide with), used here as a clean
-        # substitute rather than attempting to hand-fix third-party UVs.
-        "hair": "wavy_bob",
+        # close-up render - see git history). Swapped to wavy_bob first, but
+        # that turned out to have its own (much smaller, same-colored-as-
+        # scalp so easy to miss in a first pass) gap at the crown between two
+        # curl clumps - confirmed it's not an alpha-threshold artifact
+        # (lowering alpha_mask from 0.5 to 0.15 changed nothing) but an
+        # actual mesh gap in that asset. Checked four alternatives via close
+        # crown renders before picking one: elvs_daisy_hair has the same kind
+        # of small crown gap, culturalibre_hair_14 and long01 are fully
+        # solid, elvs_adrienne_hair is fully solid AND already proven at
+        # long/center-parted styling - settled on elvs_adrienne_hair, tinted
+        # dark since its own native color is light blonde/pink.
+        "hair": "elvs_adrienne_hair",
+        "hair_color": (0.08, 0.06, 0.05),
         "eyebrows": "eyebrow006",
         "eyelashes": "eyelashes03",
         "eye_color": "deepblue",
