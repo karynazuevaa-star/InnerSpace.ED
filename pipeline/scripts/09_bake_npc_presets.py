@@ -53,6 +53,7 @@ import sys
 import bpy
 import bmesh
 import mathutils
+from mathutils.bvhtree import BVHTree
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # pipeline/
 OUT_DIR = os.path.join(ROOT, "out", "npc")
@@ -772,8 +773,128 @@ def lift_hem_clear_of_bottom_layer(top_obj, bottom_obj, clearance=0.012, max_lif
 
 MANUAL_HEM_FIX_ITEMS = {"knitted_sweater"}
 
+# Ported as-is from the sibling project's mpfb-assemble-character-
+# experimental.py, along with push_clothes_outward and
+# flatten_body_detail_material below - a general "skin showing through
+# clothes" fix (not the sweater-specific one above) that this pipeline
+# never had at all until it surfaced directly: after the weight-formula
+# fix made these bodies visibly bigger, several presets started showing
+# torn/patchy skin at the chest, shoulder and hip in the live cafe scene
+# (not visible in the static preview renders - different lighting/angle/
+# pose apparently hid it there). Every one of these constants and this
+# exact algorithm is copied from that project's own validated version
+# (108-combo QA sweep, see its own comments) rather than re-derived here.
+CLOTHES_CLEARANCE_METERS = 0.004
+BODY_EMBED_CHECK_METERS = 0.03
+BODY_CLEARANCE_MARGIN_METERS = 0.001
+BODY_CLEARANCE_MAX_EXTRA_METERS = 0.01
+NIPPLE_FLATTEN_METERS = 0.008
+GENITALS_FLATTEN_METERS = 0.012
 
-def fit_outfit(HumanService, basemesh, mhclo_path):
+
+def push_clothes_outward(obj, amount=CLOTHES_CLEARANCE_METERS, body_bvh=None):
+    """Nudges every vertex of a fitted clothes mesh outward along its own
+    normal so it clears the body surface, with two safeguards (both ported
+    from the sibling project, see its own long comments for how each was
+    arrived at): a self-fold cap that stops thin geometry (a strap, a
+    shoe's sole) from being pushed through its own opposite wall, skipped
+    for hem/cuff/collar boundary loops since those have no opposite wall to
+    fold through; and a body-aware top-up that only fires when a vertex is
+    still measurably embedded in the body after the base push, using the
+    body's own surface normal (not the vertex's) when the vertex was
+    self-fold-capped, so the top-up can't undo that cap's own protection.
+    """
+    mesh = obj.data
+
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.verts.ensure_lookup_table()
+    bvh = BVHTree.FromBMesh(bm)
+
+    hem_adjacent = set()
+    for edge in bm.edges:
+        if len(edge.link_faces) == 1:
+            for v in edge.verts:
+                hem_adjacent.add(v.index)
+                for e2 in v.link_edges:
+                    hem_adjacent.add(e2.other_vert(v).index)
+
+    capped_count = 0
+    body_topped_up_count = 0
+    for index, vertex in enumerate(mesh.vertices):
+        normal = vertex.normal
+        origin = vertex.co - normal * 1e-4
+        _location, hit_normal, _hit_index, hit_distance = bvh.ray_cast(
+            origin, -normal, amount * 6
+        )
+        safe_amount = amount
+        was_capped = False
+        if index not in hem_adjacent and hit_distance is not None and hit_distance * 0.4 < amount:
+            facing_dot = normal.dot(hit_normal)
+            if facing_dot < -0.3:
+                safe_amount = hit_distance * 0.4
+                capped_count += 1
+                was_capped = True
+
+        new_co = vertex.co + normal * safe_amount
+
+        if body_bvh is not None:
+            _b_loc, b_normal, _b_idx, b_dist = body_bvh.ray_cast(
+                new_co, normal, BODY_EMBED_CHECK_METERS
+            )
+            if b_dist is not None and normal.dot(b_normal) > 0:
+                target_extra = min(b_dist + BODY_CLEARANCE_MARGIN_METERS, BODY_CLEARANCE_MAX_EXTRA_METERS)
+                if was_capped:
+                    new_co = new_co + b_normal * target_extra
+                else:
+                    new_co = new_co + normal * target_extra
+                body_topped_up_count += 1
+
+        mesh.vertices[index].co = new_co
+
+    mesh.update()
+    bm.free()
+    print(
+        f"Pushed '{obj.name}' outward by up to {amount * 1000:.1f}mm "
+        f"for body clearance ({capped_count}/{len(mesh.vertices)} vertices thickness-capped, "
+        f"{body_topped_up_count} topped up after still being embedded in the body)"
+    )
+
+
+def flatten_body_detail_material(basemesh, material_name_substring, geometry_inward_meters=0.0):
+    """Pulls the body's own raised detail geometry (nipple/genitals bumps)
+    inward along its own vertex normals before clothes are fitted, so a
+    snugly-fitted top/bottom doesn't end up level with or inside that bump
+    and show a symmetric patch of bare skin through the fabric - the
+    "расходится на груди" bug this exact fix addresses in the sibling
+    project. Must run before push_clothes_outward fits clothing onto this
+    body. Confirmed this basemesh keeps separate 'Human.nipple'/
+    'Human.genitals' material slots after apply_skin (checked directly),
+    matching what this substring match expects.
+    """
+    materials = basemesh.data.materials
+    target_index = None
+    for index, slot in enumerate(materials):
+        if slot and material_name_substring.lower() in slot.name.lower():
+            target_index = index
+            break
+    if target_index is None:
+        return
+
+    if geometry_inward_meters:
+        mesh = basemesh.data
+        vertex_indices = set()
+        for polygon in mesh.polygons:
+            if polygon.material_index == target_index:
+                vertex_indices.update(polygon.vertices)
+
+        for index in vertex_indices:
+            vertex = mesh.vertices[index]
+            vertex.co = vertex.co - vertex.normal * geometry_inward_meters
+        mesh.update()
+
+
+def fit_outfit(HumanService, basemesh, mhclo_path, body_bvh=None):
     obj = HumanService.add_mhclo_asset(
         mhclo_path, basemesh,
         asset_type="Clothes",
@@ -785,6 +906,7 @@ def fit_outfit(HumanService, basemesh, mhclo_path):
     )
     simplify_materials_for_export(obj)
     force_opaque_materials(obj)
+    push_clothes_outward(obj, body_bvh=body_bvh)
     return obj
 
 
@@ -871,6 +993,16 @@ def build_preset(HumanService, TargetService, preset):
         path = os.path.join(MPFB_TARGETS_DIR, rel_path)
         TargetService.load_target(basemesh, path, weight=0.0, name=shape_name)
 
+    # Must run before any outfit is fitted (push_clothes_outward below
+    # builds its body-clearance BVH from this same, now-flattened, mesh) -
+    # see flatten_body_detail_material's own docstring.
+    flatten_body_detail_material(basemesh, "nipple", geometry_inward_meters=NIPPLE_FLATTEN_METERS)
+    flatten_body_detail_material(basemesh, "genitals", geometry_inward_meters=GENITALS_FLATTEN_METERS)
+
+    body_bm = bmesh.new()
+    body_bm.from_mesh(basemesh.data)
+    body_bvh = BVHTree.FromBMesh(body_bm)
+
     # Helper-geometry removal must come AFTER every MHCLO fit below, not
     # before: fit_clothes_to_human/interpolate_weights match vertices by
     # INDEX against the basemesh's ORIGINAL (full) topology - stripping
@@ -891,16 +1023,17 @@ def build_preset(HumanService, TargetService, preset):
     fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO[preset.get("eyebrows", "eyebrow002")], "Eyebrows", alpha_mask=0.3)
     fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO[preset.get("eyelashes", "eyelashes01")], "Eyelashes", alpha_mask=0.3)
 
-    top_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]])
+    top_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]], body_bvh=body_bvh)
     bottom_obj = None
     if preset["bottom"]:
-        bottom_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["bottom"]])
+        bottom_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["bottom"]], body_bvh=body_bvh)
     if preset.get("shoes"):
-        fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["shoes"]])
+        fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["shoes"]], body_bvh=body_bvh)
 
     if preset["top"] in MANUAL_HEM_FIX_ITEMS and bottom_obj is not None:
         lift_hem_clear_of_bottom_layer(top_obj, bottom_obj)
 
+    body_bm.free()
     remove_helper_geometry(basemesh)
 
     render_preview(preset["name"], armature_obj)
