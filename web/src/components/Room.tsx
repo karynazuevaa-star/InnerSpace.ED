@@ -34,7 +34,7 @@ export function Room() {
 
       <Alcove position={[0, 0, -2.32]} />
       <Mirror position={[-1.55, 0, -0.55]} rotation={[0, Math.PI * 0.42, 0]} />
-      <Plant position={[-0.75, 0, -0.5]} />
+      <Plant position={[-0.75, 0, -1.2]} />
       <FloorLamp position={[2.35, 0, -1.05]} />
       <FloatingShelf position={[2.15, 1.0, -2.28]} />
 
