@@ -90,6 +90,7 @@ HAIR_MHCLO = {
     "culturalibre_hair_14": os.path.join(ASSETS, "hair", "culturalibre_hair_14", "culturalibre_hair_14.mhclo"),
     "elvs_island_princess_hair": os.path.join(ASSETS, "hair", "elvs_island_princess_hair", "elvs_island_princess_hair.mhclo"),
     "culturalibre_hair_05": os.path.join(ASSETS, "hair", "culturalibre_hair_05", "culturalibre_hair_05.mhclo"),
+    "elvs_braid_bun": os.path.join(ASSETS, "hair", "elvs_braid_bun", "elvs_braid_bun.mhclo"),
 }
 # Only long01 is cut down via cut_hair_length (its own long/medium/short
 # variants) - the others are already the shape they're meant to be; a flat
@@ -427,7 +428,16 @@ PRESETS = [
         "morphs": female(),
         "muscle": 0.85,
         "macro_weight": 0.85,
-        "hair": "wavy_bob",
+        # wavy_bob (the original recipe) has a small gap between two curl
+        # clumps at the crown, same class of asset defect found on
+        # npc_lace_ruffle's original hair (see git history) - not visible in
+        # this pipeline's own straight-on preview renders, only from a
+        # steeper close angle. Requested explicitly as a black bun instead;
+        # elvs_braid_bun is fully solid at the crown from every angle
+        # checked and reads as a neat bun shape on its own, no styling logic
+        # needed - tinted dark since its own native color is light blonde.
+        "hair": "elvs_braid_bun",
+        "hair_color": (0.03, 0.02, 0.02),
         "eyebrows": "eyebrow009",
         "eyelashes": "eyelashes01",
         "eye_color": "blue",
