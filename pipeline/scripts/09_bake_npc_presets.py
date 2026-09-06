@@ -69,6 +69,11 @@ ASSETS = os.path.join(ROOT, "assets_src")
 
 SKIN_MHMAT = {
     "female_caucasian": os.path.join(ASSETS, "skin", "darthfurby_caucasian_female", "darthfurby_caucasian_female_noeyes.mhmat"),
+    "female_african": os.path.join(ASSETS, "skin", "young_african_female", "young_african_female.mhmat"),
+    "female_asian": os.path.join(ASSETS, "skin", "middleage_asian_female", "middleage_asian_female.mhmat"),
+    "female_caucasian_older": os.path.join(ASSETS, "skin", "old_caucasian_female", "old_caucasian_female.mhmat"),
+    "female_caucasian_young2": os.path.join(ASSETS, "skin", "young_caucasian_female", "young_caucasian_female.mhmat"),
+    "female_eurasian": os.path.join(ASSETS, "skin", "onlytheghosts_middle_aged_eurasian_female", "onlytheghosts_middle_aged_eurasian_female.mhmat"),
     "male_light": os.path.join(ASSETS, "skin", "toigo_light_skin_male_bronze", "toigo_light_skin_male_bronze.mhmat"),
     "male_dark": os.path.join(ASSETS, "skin", "mindfront_skin_male_african_middleage", "mindfront_skin_male_african_middleage.mhmat"),
 }
@@ -167,6 +172,14 @@ def sliders_to_targets(weight=0.0, belly=0.0, waist=0.0, breast=0.0, arms=0.0, l
     return out
 
 
+# Face SHAPE (bone/proportion blend), not just skin texture - re-skinning
+# the same caucasian-shaped face with a different skin tone and calling it
+# diversity was the earlier version's actual mistake here.
+RACE_CAUCASIAN = {"african": 0.0, "asian": 0.0, "caucasian": 1.0}
+RACE_AFRICAN = {"african": 1.0, "asian": 0.0, "caucasian": 0.0}
+RACE_ASIAN = {"african": 0.0, "asian": 1.0, "caucasian": 0.0}
+RACE_EURASIAN = {"african": 0.0, "asian": 0.5, "caucasian": 0.5}
+
 FEMALE_MORPHS = dict(weight=0, belly=0, waist=0, arms=0, legs=0, butt=0, breast=0, face=0)
 MALE_MORPHS = dict(weight=0, belly=0, waist=0, arms=0, legs=0, butt=0, breast=-1, face=0)  # breast=-1: smallest, closest to a flat male chest
 
@@ -188,7 +201,8 @@ PRESETS = [
         "name": "npc_thinner",
         "gender": 0.0,
         "age": 0.35,
-        "skin": "female_caucasian",
+        "race": RACE_CAUCASIAN,
+        "skin": "female_caucasian_young2",
         "morphs": female(weight=-0.6, belly=-0.3, waist=-0.4, arms=-0.3, legs=-0.3, butt=-0.2, breast=-0.1, face=-0.2),
         "muscle": 0.4,
         "hair": "long01", "hair_length": "long",
@@ -199,7 +213,8 @@ PRESETS = [
         "name": "npc_heavier",
         "gender": 0.0,
         "age": 0.65,
-        "skin": "female_caucasian",
+        "race": RACE_CAUCASIAN,
+        "skin": "female_caucasian_older",
         "morphs": female(weight=0.7, belly=0.5, waist=0.5, arms=0.4, legs=0.5, butt=0.4, breast=0.3, face=0.3),
         "muscle": 0.4,
         "hair": "bob01", "hair_length": "long",
@@ -210,7 +225,8 @@ PRESETS = [
         "name": "npc_average",
         "gender": 0.0,
         "age": 0.5,
-        "skin": "female_caucasian",
+        "race": RACE_AFRICAN,
+        "skin": "female_african",
         "morphs": female(),
         "muscle": 0.5,
         "hair": "wavy_bob", "hair_length": "long",
@@ -221,7 +237,8 @@ PRESETS = [
         "name": "npc_curvier",
         "gender": 0.0,
         "age": 0.4,
-        "skin": "female_caucasian",
+        "race": RACE_EURASIAN,
+        "skin": "female_eurasian",
         "morphs": female(weight=0.2, belly=0.1, waist=0.1, arms=0.0, legs=0.3, butt=0.7, breast=0.5, face=0.1),
         "muscle": 0.45,
         "hair": "long01", "hair_length": "long",
@@ -232,7 +249,8 @@ PRESETS = [
         "name": "npc_lean",
         "gender": 0.0,
         "age": 0.6,
-        "skin": "female_caucasian",
+        "race": RACE_ASIAN,
+        "skin": "female_asian",
         "morphs": female(weight=-0.2, belly=-0.2, waist=-0.1, arms=0.1, legs=0.1, butt=0.1, breast=-0.1, face=-0.1),
         "muscle": 0.6,
         "hair": "afro01", "hair_length": "long",
@@ -243,6 +261,7 @@ PRESETS = [
         "name": "npc_male_lean",
         "gender": 1.0,
         "age": 0.35,
+        "race": RACE_CAUCASIAN,
         "skin": "male_light",
         "morphs": male(weight=-0.3, waist=-0.3, arms=0.1, legs=0.0),
         "muscle": 0.55,
@@ -254,6 +273,7 @@ PRESETS = [
         "name": "npc_male_average",
         "gender": 1.0,
         "age": 0.6,
+        "race": RACE_AFRICAN,
         "skin": "male_dark",
         "morphs": male(),
         "muscle": 0.5,
@@ -265,6 +285,7 @@ PRESETS = [
         "name": "npc_male_heavier",
         "gender": 1.0,
         "age": 0.65,
+        "race": RACE_CAUCASIAN,
         "skin": "male_light",
         "morphs": male(weight=0.7, belly=0.5, waist=0.4, arms=0.3, legs=0.3),
         "muscle": 0.4,
@@ -276,6 +297,7 @@ PRESETS = [
         "name": "npc_male_muscular",
         "gender": 1.0,
         "age": 0.4,
+        "race": RACE_AFRICAN,
         "skin": "male_dark",
         "morphs": male(weight=0.2, arms=0.6, legs=0.4, waist=-0.1),
         "muscle": 0.85,
@@ -516,10 +538,10 @@ def build_preset(HumanService, TargetService, preset):
     clear_scene()
     macro_details = TargetService.get_default_macro_info_dict()
     macro_details["gender"] = preset["gender"]
-    macro_details["age"] = 0.5
+    macro_details["age"] = preset["age"]
     macro_details["muscle"] = preset["muscle"]
     macro_details["weight"] = 0.5
-    macro_details["race"] = {"african": 0.0, "asian": 0.0, "caucasian": 1.0}
+    macro_details["race"] = preset["race"]
     basemesh = HumanService.create_human(macro_detail_dict=macro_details)
     print(f"[{preset['name']}] basemesh verts:", len(basemesh.data.vertices))
 
