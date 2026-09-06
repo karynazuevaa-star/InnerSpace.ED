@@ -83,6 +83,12 @@ HAIR_MHCLO = {
     "afro01": os.path.join(ASSETS, "hair", "afro01", "afro01.mhclo"),
     "bob01": os.path.join(ASSETS, "hair", "bob01", "bob01.mhclo"),
     "wavy_bob": os.path.join(ASSETS, "hair", "elvs_wavy_bob", "elvs_wavy_bob.mhclo"),
+    "elvs_daisy_hair": os.path.join(ASSETS, "hair", "elvs_daisy_hair", "elvs_daisy_hair.mhclo"),
+    "elvs_short_side_do": os.path.join(ASSETS, "hair", "elvs_short_side_do", "elvs_short_side_do.mhclo"),
+    "elvs_adrienne_hair": os.path.join(ASSETS, "hair", "elvs_adrienne_hair", "elvs_adrienne_hair.mhclo"),
+    "culturalibre_hair_14": os.path.join(ASSETS, "hair", "culturalibre_hair_14", "culturalibre_hair_14.mhclo"),
+    "elvs_island_princess_hair": os.path.join(ASSETS, "hair", "elvs_island_princess_hair", "elvs_island_princess_hair.mhclo"),
+    "culturalibre_hair_05": os.path.join(ASSETS, "hair", "culturalibre_hair_05", "culturalibre_hair_05.mhclo"),
 }
 # Only long01 is cut down via cut_hair_length (its own long/medium/short
 # variants) - the others are already the shape they're meant to be; a flat
@@ -90,8 +96,29 @@ HAIR_MHCLO = {
 # cut it oddly, so every other style always uses "long" (keep_fraction 1.0,
 # a no-op).
 EYES_MHCLO = os.path.join(ASSETS, "eyes", "high-poly", "high-poly.mhclo")
-EYEBROWS_MHCLO = os.path.join(ASSETS, "eyebrows", "eyebrow002", "eyebrow002.mhclo")
-EYELASHES_MHCLO = os.path.join(ASSETS, "eyelashes", "eyelashes01", "eyelashes01.mhclo")
+# Eye color is a MATERIAL swap on the same eye mesh, not a separate asset -
+# these .mhmat files live alongside the high-poly eyes asset's own default
+# material and are applied post-fit via HumanService.set_character_skin
+# (the same MAKESKIN pathway already used for body skin), see
+# apply_eye_color() below.
+EYE_COLOR_MHMAT = {
+    "brown": os.path.join(ASSETS, "eyes", "materials", "brown.mhmat"),
+    "brownlight": os.path.join(ASSETS, "eyes", "materials", "brownlight.mhmat"),
+    "blue": os.path.join(ASSETS, "eyes", "materials", "blue.mhmat"),
+    "deepblue": os.path.join(ASSETS, "eyes", "materials", "deepblue.mhmat"),
+}
+EYEBROWS_MHCLO = {
+    "eyebrow001": os.path.join(ASSETS, "eyebrows", "eyebrow001", "eyebrow001.mhclo"),
+    "eyebrow002": os.path.join(ASSETS, "eyebrows", "eyebrow002", "eyebrow002.mhclo"),
+    "eyebrow006": os.path.join(ASSETS, "eyebrows", "eyebrow006", "eyebrow006.mhclo"),
+    "eyebrow009": os.path.join(ASSETS, "eyebrows", "eyebrow009", "eyebrow009.mhclo"),
+    "eyebrow010": os.path.join(ASSETS, "eyebrows", "eyebrow010", "eyebrow010.mhclo"),
+}
+EYELASHES_MHCLO = {
+    "eyelashes01": os.path.join(ASSETS, "eyelashes", "eyelashes01", "eyelashes01.mhclo"),
+    "eyelashes02": os.path.join(ASSETS, "eyelashes", "eyelashes02", "eyelashes02.mhclo"),
+    "eyelashes03": os.path.join(ASSETS, "eyelashes", "eyelashes03", "eyelashes03.mhclo"),
+}
 OUTFITS_DIR = os.path.join(ASSETS, "outfits")
 OUTFIT_MHCLO = {
     "hoodie": os.path.join(OUTFITS_DIR, "elvs_hooded_sweat_jacket1", "elvs_hooded_sweat_jacket1.mhclo"),
@@ -100,6 +127,19 @@ OUTFIT_MHCLO = {
     "bodysuit": os.path.join(OUTFITS_DIR, "punkduck_female_strapless_bodysuit", "punkduck_female_strapless_bodysuit.mhclo"),
     "skinsuit": os.path.join(OUTFITS_DIR, "matcreator_mc-skinsuit_2022", "matcreator_mc-skinsuit_2022.mhclo"),
     "shorts": os.path.join(OUTFITS_DIR, "cortu_jeans_shorts", "cortu_jeans_shorts.mhclo"),
+    "spaghetti_tank": os.path.join(OUTFITS_DIR, "punkduck_spaghetti_strap_tank_top", "punkduck_spaghetti_strap_tank_top.mhclo"),
+    "polka_dot_skirt": os.path.join(OUTFITS_DIR, "punkduck_retro_polka_dot_skirt", "punkduck_retro_polka_dot_skirt.mhclo"),
+    "mindfront_dress_01": os.path.join(OUTFITS_DIR, "mindfront_f_dress_01", "mindfront_f_dress_01.mhclo"),
+    "toigo_tiered_dress": os.path.join(OUTFITS_DIR, "toigo_dress_with_tiered_skirt", "toigo_dress_with_tiered_skirt.mhclo"),
+    "knitted_sweater": os.path.join(OUTFITS_DIR, "mindfront_knitted_sweater_02", "mindfront_knitted_sweater_02.mhclo"),
+    "jeans_skirt": os.path.join(OUTFITS_DIR, "punkduck_jeans_skirt", "punkduck_jeans_skirt.mhclo"),
+    "shoes05": os.path.join(OUTFITS_DIR, "shoes05", "shoes05.mhclo"),
+    "maryjane_shoes": os.path.join(OUTFITS_DIR, "dressupdoc_maryjane1", "dressupdoc_maryjane1.mhclo"),
+    "tennis_shoes": os.path.join(OUTFITS_DIR, "punkduck_tennis_shoes", "punkduck_tennis_shoes.mhclo"),
+    "native_american_skirt": os.path.join(OUTFITS_DIR, "punkduck_skirt_native_american_fashion", "punkduck_skirt_native_american_fashion.mhclo"),
+    "toigo_lace_ruffle_dress": os.path.join(OUTFITS_DIR, "toigo_bodice_dress_with_lace_ruffle_skirt", "toigo_bodice_dress_with_lace_ruffle_skirt.mhclo"),
+    "saddle_shoes": os.path.join(OUTFITS_DIR, "callharvey3d_harvey_saddleshoes1", "callharvey3d_harvey_saddleshoes1.mhclo"),
+    "male_casualsuit": os.path.join(OUTFITS_DIR, "male_casualsuit01", "male_casualsuit01.mhclo"),
     "male_tshirt": os.path.join(OUTFITS_DIR, "elvs_male_logo_tshirt1", "elvs_male_logo_tshirt1.mhclo"),
     "male_polo": os.path.join(OUTFITS_DIR, "namuhekam_male_polo_shirt", "namuhekam_male_polo_shirt.mhclo"),
     "male_jeans": os.path.join(OUTFITS_DIR, "punkduck_male_classic_jeans", "punkduck_male_classic_jeans.mhclo"),
@@ -305,6 +345,123 @@ PRESETS = [
         "hair_color": (0.04, 0.03, 0.03),
         "top": "male_polo", "bottom": "male_jeans",
     },
+    # The four presets below are direct recreations of characters the user
+    # designed herself in the sibling project's AvatarBuilder tool (a live
+    # MPFB2-backed wizard with the same underlying asset library) - she gave
+    # exact recipes (hair/eyebrows/eyelashes/eye color/outfit/shoes) and
+    # asked for them reproduced here as baked NPC presets. Unlike the other
+    # nine presets above, these use macro_weight for a direct MakeHuman
+    # weight value (matching the builder tool's Light/Average/Heavy ->
+    # 0.15/0.5/0.85 mapping) instead of the custom sliders_to_targets()
+    # formula - build_preset() reads it via preset.get("macro_weight", 0.5).
+    # Per explicit instruction, none of the nine presets above were touched
+    # to make room for these ("не меняй настройки веса" - only the four new
+    # dict entries here are new).
+    {
+        "name": "npc_polka_skirt",
+        "gender": 0.0,
+        "age": 0.5,
+        "race": RACE_CAUCASIAN,
+        "skin": "female_caucasian",
+        "morphs": female(),
+        "muscle": 0.5,
+        "macro_weight": 0.85,
+        "hair": "elvs_daisy_hair",
+        "eyebrows": "eyebrow010",
+        "eyelashes": "eyelashes01",
+        "eye_color": "brownlight",
+        "top": "spaghetti_tank", "bottom": "polka_dot_skirt", "shoes": "shoes05",
+    },
+    {
+        "name": "npc_asian_dress",
+        "gender": 0.0,
+        "age": 0.75,
+        "race": RACE_ASIAN,
+        "skin": "female_asian",
+        "morphs": female(),
+        "muscle": 0.15,
+        "macro_weight": 0.85,
+        "hair": "elvs_short_side_do",
+        "eyebrows": "eyebrow001",
+        "eyelashes": "eyelashes02",
+        "eye_color": "blue",
+        "top": "mindfront_dress_01", "bottom": None, "shoes": "maryjane_shoes",
+    },
+    {
+        "name": "npc_tiered_dress",
+        "gender": 0.0,
+        "age": 0.5,
+        "race": RACE_CAUCASIAN,
+        "skin": "female_caucasian",
+        "morphs": female(),
+        "muscle": 0.15,
+        "macro_weight": 0.15,
+        "hair": "elvs_adrienne_hair",
+        "eyebrows": "eyebrow006",
+        "eyelashes": "eyelashes01",
+        "eye_color": "brown",
+        "top": "toigo_tiered_dress", "bottom": None, "shoes": "tennis_shoes",
+    },
+    {
+        "name": "npc_knit_sweater",
+        "gender": 0.0,
+        "age": 0.5,
+        "race": RACE_CAUCASIAN,
+        "skin": "female_caucasian",
+        "morphs": female(),
+        "muscle": 0.5,
+        "macro_weight": 0.85,
+        "hair": "culturalibre_hair_14",
+        "eyebrows": "eyebrow001",
+        "eyelashes": "eyelashes01",
+        "eye_color": "brown",
+        "top": "knitted_sweater", "bottom": "jeans_skirt", "shoes": "shoes05",
+    },
+    {
+        "name": "npc_native_skirt",
+        "gender": 0.0,
+        "age": 0.5,
+        "race": RACE_ASIAN,
+        "skin": "female_asian",
+        "morphs": female(),
+        "muscle": 0.85,
+        "macro_weight": 0.85,
+        "hair": "wavy_bob",
+        "eyebrows": "eyebrow009",
+        "eyelashes": "eyelashes01",
+        "eye_color": "blue",
+        "top": "spaghetti_tank", "bottom": "native_american_skirt", "shoes": "shoes05",
+    },
+    {
+        "name": "npc_lace_ruffle",
+        "gender": 0.0,
+        "age": 0.5,
+        "race": RACE_CAUCASIAN,
+        "skin": "female_caucasian",
+        "morphs": female(),
+        "muscle": 0.15,
+        "macro_weight": 0.85,
+        "hair": "elvs_island_princess_hair",
+        "eyebrows": "eyebrow006",
+        "eyelashes": "eyelashes03",
+        "eye_color": "deepblue",
+        "top": "toigo_lace_ruffle_dress", "bottom": None, "shoes": "saddle_shoes",
+    },
+    {
+        "name": "npc_male_casualsuit",
+        "gender": 1.0,
+        "age": 0.75,
+        "race": RACE_CAUCASIAN,
+        "skin": "male_light",
+        "morphs": male(),
+        "muscle": 0.5,
+        "macro_weight": 0.85,
+        "hair": "culturalibre_hair_05",
+        "eyebrows": "eyebrow001",
+        "eyelashes": "eyelashes01",
+        "eye_color": "brown",
+        "top": "male_casualsuit", "bottom": None, "shoes": "shoes05",
+    },
 ]
 
 
@@ -338,6 +495,15 @@ def apply_skin(HumanService, basemesh, skin_key):
     HumanService.set_character_skin(SKIN_MHMAT[skin_key], basemesh, skin_type="MAKESKIN")
     simplify_materials_for_export(basemesh)
     force_opaque_materials(basemesh)
+
+
+def apply_eye_color(HumanService, eyes_obj, color_key):
+    """Re-applies the eyes mesh's material via the same MAKESKIN pathway
+    used for body skin, just pointed at a different color's .mhmat -
+    deliberately does NOT call force_opaque_materials afterwards (see the
+    long comment on fit_rigid_bodypart about why that broke the eyes)."""
+    HumanService.set_character_skin(EYE_COLOR_MHMAT[color_key], eyes_obj, skin_type="MAKESKIN")
+    simplify_materials_for_export(eyes_obj)
 
 
 def simplify_materials_for_export(obj):
@@ -492,6 +658,121 @@ def fit_rigid_bodypart(HumanService, basemesh, mhclo_path, asset_type, tint=None
     return obj
 
 
+def _boundary_loops_with_verts(obj):
+    """Ported as-is from the sibling project's mpfb-assemble-character-
+    experimental.py - groups an outfit mesh's open-boundary edges (hems,
+    cuffs, necklines) into connected loops."""
+    mesh = obj.data
+    bm = bmesh.new()
+    bm.from_mesh(mesh)
+    bm.edges.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
+    boundary_edges = {e.index: e for e in bm.edges if len(e.link_faces) == 1}
+    visited = set()
+    loops = []
+    for start_index, start_edge in boundary_edges.items():
+        if start_index in visited:
+            continue
+        stack = [start_edge]
+        loop_edge_indices = set()
+        loop_vert_indices = set()
+        while stack:
+            edge = stack.pop()
+            if edge.index in loop_edge_indices:
+                continue
+            loop_edge_indices.add(edge.index)
+            for vert in edge.verts:
+                loop_vert_indices.add(vert.index)
+                for other_edge in vert.link_edges:
+                    if other_edge.index in boundary_edges and other_edge.index not in loop_edge_indices:
+                        stack.append(other_edge)
+        visited |= loop_edge_indices
+        loops.append(loop_vert_indices)
+    bm.free()
+    return loops
+
+
+def lift_hem_clear_of_bottom_layer(top_obj, bottom_obj, clearance=0.012, max_lift=0.09, ring_depth=3):
+    """Ported as-is from the sibling project's mpfb-assemble-character-
+    experimental.py (MANUAL_HEM_FIX_ITEMS / lift_hem_clear_of_bottom_layer) -
+    a hand-fix for a known bug specific to mindfront_knitted_sweater_01/02:
+    the sweater's hem sits a few mm below whatever bottom garment it's
+    layered over, and since that gap isn't at the bottom garment's own
+    open-boundary edge, the general push_clothes_outward pass never sees
+    it - reads as a jagged notch of bare skin between the two garments.
+    Confirmed clean there (front + side) on cortu_cargo_pants; not
+    validated against other tops, so only called for the knitted-sweater
+    preset here, matching the sibling project's own scoping of this fix.
+    Lifts the top's lowest boundary loop (+ring_depth rings, falling off
+    to zero by the outermost ring so there's no sharp step at the seam)
+    until it clears the bottom garment's own highest point.
+    """
+    top_loops = _boundary_loops_with_verts(top_obj)
+    bottom_loops = _boundary_loops_with_verts(bottom_obj)
+    if not top_loops or not bottom_loops:
+        return 0
+
+    top_mesh = top_obj.data
+    top_mat = top_obj.matrix_world
+    top_mat_inv = top_mat.inverted()
+    bottom_mesh = bottom_obj.data
+    bottom_mat = bottom_obj.matrix_world
+
+    def loop_avg_z(obj_mat, mesh, loop):
+        return sum((obj_mat @ mesh.vertices[vi].co).z for vi in loop) / len(loop)
+
+    hem_loop = min(top_loops, key=lambda loop: loop_avg_z(top_mat, top_mesh, loop))
+    all_bottom_zs = [(bottom_mat @ v.co).z for v in bottom_mesh.vertices]
+    global_target_z = max(all_bottom_zs) + clearance
+
+    bm = bmesh.new()
+    bm.from_mesh(top_mesh)
+    bm.verts.ensure_lookup_table()
+
+    ring_of = {vi: 0 for vi in hem_loop}
+    frontier = set(hem_loop)
+    for depth in range(1, ring_depth + 1):
+        next_frontier = set()
+        for vi in frontier:
+            for e in bm.verts[vi].link_edges:
+                ov = e.other_vert(bm.verts[vi]).index
+                if ov not in ring_of:
+                    ring_of[ov] = depth
+                    next_frontier.add(ov)
+        frontier = next_frontier
+
+    moved = 0
+    for vi, depth in ring_of.items():
+        v = bm.verts[vi]
+        world_co = top_mat @ v.co
+        if world_co.z >= global_target_z:
+            continue
+        falloff = 1.0 - (depth / (ring_depth + 1))
+        needed_lift = (global_target_z - world_co.z) * falloff
+        lift = min(needed_lift, max_lift)
+        if lift <= 1e-6:
+            continue
+        world_co.z += lift
+        v.co = top_mat_inv @ world_co
+        moved += 1
+
+    bm.to_mesh(top_mesh)
+    top_mesh.update()
+
+    smooth_verts = [bm.verts[vi] for vi in ring_of]
+    for _ in range(2):
+        bmesh.ops.smooth_vert(bm, verts=smooth_verts, factor=0.3,
+                               use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    bm.to_mesh(top_mesh)
+    top_mesh.update()
+    bm.free()
+    print(f"lift_hem_clear_of_bottom_layer: moved {moved}/{len(ring_of)} verts")
+    return moved
+
+
+MANUAL_HEM_FIX_ITEMS = {"knitted_sweater"}
+
+
 def fit_outfit(HumanService, basemesh, mhclo_path):
     obj = HumanService.add_mhclo_asset(
         mhclo_path, basemesh,
@@ -540,7 +821,7 @@ def build_preset(HumanService, TargetService, preset):
     macro_details["gender"] = preset["gender"]
     macro_details["age"] = preset["age"]
     macro_details["muscle"] = preset["muscle"]
-    macro_details["weight"] = 0.5
+    macro_details["weight"] = preset.get("macro_weight", 0.5)
     macro_details["race"] = preset["race"]
     basemesh = HumanService.create_human(macro_detail_dict=macro_details)
     print(f"[{preset['name']}] basemesh verts:", len(basemesh.data.vertices))
@@ -576,17 +857,25 @@ def build_preset(HumanService, TargetService, preset):
     # weights already baked into vertex groups keyed by BONE name, not by
     # basemesh vertex index, so nothing downstream cares that basemesh
     # itself later loses vertices.
-    hair_obj = fit_rigid_bodypart(HumanService, basemesh, HAIR_MHCLO[preset["hair"]], "Hair", tint=preset["hair_color"], alpha_mask=0.5)
+    hair_obj = fit_rigid_bodypart(HumanService, basemesh, HAIR_MHCLO[preset["hair"]], "Hair", tint=preset.get("hair_color"), alpha_mask=0.5)
     if preset["hair"] == "long01":
         cut_hair_length(hair_obj, HAIR_LENGTH_FRACTION[preset["hair_length"]])
 
-    fit_rigid_bodypart(HumanService, basemesh, EYES_MHCLO, "Eyes")
-    fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO, "Eyebrows", alpha_mask=0.3)
-    fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO, "Eyelashes", alpha_mask=0.3)
+    eyes_obj = fit_rigid_bodypart(HumanService, basemesh, EYES_MHCLO, "Eyes")
+    if preset.get("eye_color"):
+        apply_eye_color(HumanService, eyes_obj, preset["eye_color"])
+    fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO[preset.get("eyebrows", "eyebrow002")], "Eyebrows", alpha_mask=0.3)
+    fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO[preset.get("eyelashes", "eyelashes01")], "Eyelashes", alpha_mask=0.3)
 
-    fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]])
+    top_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]])
+    bottom_obj = None
     if preset["bottom"]:
-        fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["bottom"]])
+        bottom_obj = fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["bottom"]])
+    if preset.get("shoes"):
+        fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["shoes"]])
+
+    if preset["top"] in MANUAL_HEM_FIX_ITEMS and bottom_obj is not None:
+        lift_hem_clear_of_bottom_layer(top_obj, bottom_obj)
 
     remove_helper_geometry(basemesh)
 

@@ -22,6 +22,7 @@ import { cloneGltfScene } from '../../avatar/cloneGltf';
 export const NPC_PRESET_NAMES = [
   'npc_thinner', 'npc_heavier', 'npc_average', 'npc_curvier', 'npc_lean',
   'npc_male_lean', 'npc_male_average', 'npc_male_heavier', 'npc_male_muscular',
+  'npc_polka_skirt', 'npc_asian_dress', 'npc_tiered_dress', 'npc_knit_sweater',
 ] as const;
 export type NpcPresetName = (typeof NPC_PRESET_NAMES)[number];
 
