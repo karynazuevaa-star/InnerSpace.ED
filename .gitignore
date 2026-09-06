@@ -10,6 +10,9 @@ dist-ssr/
 pipeline/out/
 pipeline/out_legacy/
 
+# Python (Blender scripts imported ad hoc, e.g. via --python-expr)
+__pycache__/
+
 # Editor/OS
 .vscode/*
 !.vscode/extensions.json

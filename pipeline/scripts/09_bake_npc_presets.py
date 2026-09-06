@@ -75,7 +75,15 @@ SKIN_MHMAT = {
 HAIR_MHCLO = {
     "long01": os.path.join(ASSETS, "hair", "long01", "long01.mhclo"),
     "short01": os.path.join(ASSETS, "hair", "short01", "short01.mhclo"),
+    "afro01": os.path.join(ASSETS, "hair", "afro01", "afro01.mhclo"),
+    "bob01": os.path.join(ASSETS, "hair", "bob01", "bob01.mhclo"),
+    "wavy_bob": os.path.join(ASSETS, "hair", "elvs_wavy_bob", "elvs_wavy_bob.mhclo"),
 }
+# Only long01 is cut down via cut_hair_length (its own long/medium/short
+# variants) - the others are already the shape they're meant to be; a flat
+# Z-plane bisect through an afro or bob wasn't designed for and would just
+# cut it oddly, so every other style always uses "long" (keep_fraction 1.0,
+# a no-op).
 EYES_MHCLO = os.path.join(ASSETS, "eyes", "high-poly", "high-poly.mhclo")
 EYEBROWS_MHCLO = os.path.join(ASSETS, "eyebrows", "eyebrow002", "eyebrow002.mhclo")
 EYELASHES_MHCLO = os.path.join(ASSETS, "eyelashes", "eyelashes01", "eyelashes01.mhclo")
@@ -179,6 +187,7 @@ PRESETS = [
     {
         "name": "npc_thinner",
         "gender": 0.0,
+        "age": 0.35,
         "skin": "female_caucasian",
         "morphs": female(weight=-0.6, belly=-0.3, waist=-0.4, arms=-0.3, legs=-0.3, butt=-0.2, breast=-0.1, face=-0.2),
         "muscle": 0.4,
@@ -189,46 +198,51 @@ PRESETS = [
     {
         "name": "npc_heavier",
         "gender": 0.0,
+        "age": 0.65,
         "skin": "female_caucasian",
         "morphs": female(weight=0.7, belly=0.5, waist=0.5, arms=0.4, legs=0.5, butt=0.4, breast=0.3, face=0.3),
         "muscle": 0.4,
-        "hair": "long01", "hair_length": "short",
+        "hair": "bob01", "hair_length": "long",
         "hair_color": (0.05, 0.04, 0.03),
-        "top": "croptop", "bottom": "tightjeans",
+        "top": "croptop", "bottom": "shorts",
     },
     {
         "name": "npc_average",
         "gender": 0.0,
+        "age": 0.5,
         "skin": "female_caucasian",
         "morphs": female(),
         "muscle": 0.5,
-        "hair": "long01", "hair_length": "medium",
+        "hair": "wavy_bob", "hair_length": "long",
         "hair_color": (0.35, 0.22, 0.10),
         "top": "skinsuit", "bottom": None,
     },
     {
         "name": "npc_curvier",
         "gender": 0.0,
+        "age": 0.4,
         "skin": "female_caucasian",
         "morphs": female(weight=0.2, belly=0.1, waist=0.1, arms=0.0, legs=0.3, butt=0.7, breast=0.5, face=0.1),
         "muscle": 0.45,
         "hair": "long01", "hair_length": "long",
         "hair_color": (0.20, 0.09, 0.28),
-        "top": "croptop", "bottom": "shorts",
+        "top": "bodysuit", "bottom": "shorts",
     },
     {
         "name": "npc_lean",
         "gender": 0.0,
+        "age": 0.6,
         "skin": "female_caucasian",
         "morphs": female(weight=-0.2, belly=-0.2, waist=-0.1, arms=0.1, legs=0.1, butt=0.1, breast=-0.1, face=-0.1),
         "muscle": 0.6,
-        "hair": "long01", "hair_length": "short",
-        "hair_color": (0.55, 0.42, 0.15),
+        "hair": "afro01", "hair_length": "long",
+        "hair_color": (0.05, 0.04, 0.035),
         "top": "hoodie", "bottom": "shorts",
     },
     {
         "name": "npc_male_lean",
         "gender": 1.0,
+        "age": 0.35,
         "skin": "male_light",
         "morphs": male(weight=-0.3, waist=-0.3, arms=0.1, legs=0.0),
         "muscle": 0.55,
@@ -239,6 +253,7 @@ PRESETS = [
     {
         "name": "npc_male_average",
         "gender": 1.0,
+        "age": 0.6,
         "skin": "male_dark",
         "morphs": male(),
         "muscle": 0.5,
@@ -249,6 +264,7 @@ PRESETS = [
     {
         "name": "npc_male_heavier",
         "gender": 1.0,
+        "age": 0.65,
         "skin": "male_light",
         "morphs": male(weight=0.7, belly=0.5, waist=0.4, arms=0.3, legs=0.3),
         "muscle": 0.4,
@@ -259,6 +275,7 @@ PRESETS = [
     {
         "name": "npc_male_muscular",
         "gender": 1.0,
+        "age": 0.4,
         "skin": "male_dark",
         "morphs": male(weight=0.2, arms=0.6, legs=0.4, waist=-0.1),
         "muscle": 0.85,
@@ -328,6 +345,35 @@ def force_opaque_materials(obj):
         mat.blend_method = "OPAQUE"
 
 
+def set_alpha_mask(obj, threshold=0.5):
+    """For alpha-CUTOUT assets (hair cards, eyebrow/eyelash strand sheets) -
+    unlike force_opaque_materials above, which is right for skin/eyes/
+    clothes. The MAKESKIN material ships as alpha BLEND (mhmat's own
+    "transparent True"), which real-blends the whole quad instead of
+    discarding the transparent parts - reads as a washed-out grey card
+    with sorting artifacts. Forcing OPAQUE instead (what this bake script
+    did originally) is worse: it was still filling in the "transparent"
+    region with that texture's baked-black padding, which for eyebrows/
+    eyelashes sitting right at eye level rendered as solid black blocks
+    over the eyes - not simply thicker brows, actual eyeless-looking
+    faces. MASK (Blender's CLIP) with a real threshold discards anything
+    below it outright: cheap, no sort-order issues, and it actually shows
+    the strand pattern instead of a block or a wash.
+    """
+    for mat in obj.data.materials:
+        if not mat or not mat.use_nodes:
+            continue
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+        tex_node = nodes.get("diffuseTexture")
+        bsdf = next((n for n in nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if not tex_node or not bsdf:
+            continue
+        links.new(tex_node.outputs["Alpha"], bsdf.inputs["Alpha"])
+        mat.blend_method = "CLIP"
+        mat.alpha_threshold = threshold
+
+
 def tint_material(obj, rgb):
     """Multiply every material's diffuse texture by `rgb` (0..1 floats) -
     same idea as the dressing-room tool's hair recolor, done once at bake
@@ -376,7 +422,7 @@ def remove_helper_geometry(basemesh):
     bpy.ops.object.mode_set(mode="OBJECT")
 
 
-def fit_rigid_bodypart(HumanService, basemesh, mhclo_path, asset_type, tint=None):
+def fit_rigid_bodypart(HumanService, basemesh, mhclo_path, asset_type, tint=None, alpha_mask=None, force_opaque=False):
     """Fit a rigid (non-cloth) MHCLO asset - hair/eyes/eyebrows/eyelashes -
     to `basemesh` and bind it to the SAME armature already on `basemesh`
     via weight interpolation, instead of the dressing-room tool's approach
@@ -385,6 +431,25 @@ def fit_rigid_bodypart(HumanService, basemesh, mhclo_path, asset_type, tint=None
     scalp/face vertices land almost entirely on the "head" bone already
     (that's what those vertices are weighted to), so this reads as a rigid
     head-follow with no extra bone-group bookkeeping needed.
+
+    `alpha_mask` (a 0..1 threshold) is for strand-card assets (hair,
+    eyebrows, eyelashes) that need their transparent regions actually
+    discarded rather than filled solid - see set_alpha_mask(). Leave both
+    `alpha_mask` and `force_opaque` at their defaults (None/False) for an
+    asset - eyes - that should be left exactly as MAKESKIN set it up.
+
+    force_opaque_materials() (unlinking the texture's Alpha output from
+    the BSDF's Alpha input, then forcing a fixed 1.0) turned out to be
+    actively wrong for the eyes: even though its own blend_method write is
+    a no-op in this Blender/EEVEE-Next build (confirmed - the material
+    stayed "HASHED" before and after), just disconnecting that Alpha link
+    was enough on its own to turn the iris solid black, isolated by
+    re-running the exact same fit with each piece of that function applied
+    separately. Something in this material's graph reads the SAME
+    diffuseTexture node's Alpha output for more than transparency, so
+    forcing it to a flat 1.0 breaks whatever that is. Eyes don't have any
+    actually-transparent region to mask out in the first place, so the
+    fix is just to never touch this material's alpha wiring at all.
     """
     obj = HumanService.add_mhclo_asset(
         mhclo_path, basemesh,
@@ -396,7 +461,10 @@ def fit_rigid_bodypart(HumanService, basemesh, mhclo_path, asset_type, tint=None
         import_weights=False,
     )
     simplify_materials_for_export(obj)
-    force_opaque_materials(obj)
+    if alpha_mask is not None:
+        set_alpha_mask(obj, alpha_mask)
+    elif force_opaque:
+        force_opaque_materials(obj)
     if tint:
         tint_material(obj, tint)
     return obj
@@ -486,12 +554,13 @@ def build_preset(HumanService, TargetService, preset):
     # weights already baked into vertex groups keyed by BONE name, not by
     # basemesh vertex index, so nothing downstream cares that basemesh
     # itself later loses vertices.
-    hair_obj = fit_rigid_bodypart(HumanService, basemesh, HAIR_MHCLO[preset["hair"]], "Hair", tint=preset["hair_color"])
-    cut_hair_length(hair_obj, HAIR_LENGTH_FRACTION[preset["hair_length"]])
+    hair_obj = fit_rigid_bodypart(HumanService, basemesh, HAIR_MHCLO[preset["hair"]], "Hair", tint=preset["hair_color"], alpha_mask=0.5)
+    if preset["hair"] == "long01":
+        cut_hair_length(hair_obj, HAIR_LENGTH_FRACTION[preset["hair_length"]])
 
     fit_rigid_bodypart(HumanService, basemesh, EYES_MHCLO, "Eyes")
-    fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO, "Eyebrows")
-    fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO, "Eyelashes")
+    fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO, "Eyebrows", alpha_mask=0.3)
+    fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO, "Eyelashes", alpha_mask=0.3)
 
     fit_outfit(HumanService, basemesh, OUTFIT_MHCLO[preset["top"]])
     if preset["bottom"]:
@@ -499,23 +568,27 @@ def build_preset(HumanService, TargetService, preset):
 
     remove_helper_geometry(basemesh)
 
-    render_preview(preset["name"])
+    render_preview(preset["name"], armature_obj)
     export_glb(preset["name"])
 
 
-def render_preview(name):
-    """A quick front-view EEVEE render of everything currently in the scene,
-    saved as a PNG next to the glb - lets a person pick which presets to use
+def render_preview(name, armature_obj):
+    """Two quick EEVEE renders of everything currently in the scene, saved
+    as PNGs next to the glb - lets a person pick which presets to use
     without needing a browser (this session's testing kept hitting flaky
-    WebGL context loss in the sandboxed browser used for that)."""
+    WebGL context loss in the sandboxed browser used for that): a full-body
+    shot for silhouette/outfit, and a face close-up, since eyes/brows only
+    take up a handful of pixels in the full-body frame at any resolution
+    that's still a reasonable file size - small enough that iris/sclera/
+    lash detail isn't resolvable and reads as a flat dark smudge, which
+    looked exactly like "no eyes, just black circles" but wasn't actually
+    that (a dedicated close-up of the same eye showed it rendering
+    correctly - iris, sclera, lash line all present)."""
     scene = bpy.context.scene
-    cam_data = bpy.data.cameras.new(name="preview_cam")
-    cam_obj = bpy.data.objects.new("preview_cam", cam_data)
-    bpy.context.collection.objects.link(cam_obj)
-    cam_obj.location = (0, -2.6, 1.05)
-    cam_obj.rotation_euler = (mathutils.Euler((1.5708, 0, 0)))
-    cam_data.lens = 50
-    scene.camera = cam_obj
+    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    scene.render.film_transparent = False
+    scene.world = bpy.data.worlds.new(f"preview_world_{name}")
+    scene.world.color = (0.4, 0.39, 0.38)
 
     key = bpy.data.lights.new(name="preview_key", type="SUN")
     key.energy = 3.0
@@ -530,17 +603,48 @@ def render_preview(name):
     fill_obj.rotation_euler = (1.0, 0, -2.2)
     bpy.context.collection.objects.link(fill_obj)
 
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
+    # Straight-on, aimed level (not steeply down like key/fill above) - eye
+    # sockets and other concave face detail render as solid black shadow in
+    # EEVEE's simple lighting without this, regardless of the eyeball mesh.
+    cam_light = bpy.data.lights.new(name="preview_cam_light", type="SUN")
+    cam_light.energy = 1.5
+    cam_light_obj = bpy.data.objects.new("preview_cam_light", cam_light)
+    cam_light_obj.rotation_euler = (1.5708, 0, 0)
+    bpy.context.collection.objects.link(cam_light_obj)
+
+    full_cam_data = bpy.data.cameras.new(name="preview_cam_full")
+    full_cam = bpy.data.objects.new("preview_cam_full", full_cam_data)
+    bpy.context.collection.objects.link(full_cam)
+    full_cam.location = (0, -2.6, 1.05)
+    full_cam.rotation_euler = (mathutils.Euler((1.5708, 0, 0)))
+    full_cam_data.lens = 50
+
+    head_z = 1.55
+    pose_bone = armature_obj.pose.bones.get("head") if armature_obj else None
+    if pose_bone:
+        head_z = (armature_obj.matrix_world @ pose_bone.head).z
+    face_cam_data = bpy.data.cameras.new(name="preview_cam_face")
+    face_cam = bpy.data.objects.new("preview_cam_face", face_cam_data)
+    bpy.context.collection.objects.link(face_cam)
+    face_cam.location = (0, -0.55, head_z + 0.02)
+    face_cam.rotation_euler = (mathutils.Euler((1.5708, 0, 0)))
+    face_cam_data.lens = 85
+
     scene.render.resolution_x = 512
     scene.render.resolution_y = 768
-    scene.render.film_transparent = False
-    scene.world = bpy.data.worlds.new("preview_world")
-    scene.world.color = (0.25, 0.24, 0.23)
-
+    scene.camera = full_cam
     out_path = os.path.join(PREVIEW_DIR, f"{name}.png")
     scene.render.filepath = out_path
     bpy.ops.render.render(write_still=True)
     print(f"Rendered preview {out_path}")
+
+    scene.render.resolution_x = 512
+    scene.render.resolution_y = 512
+    scene.camera = face_cam
+    face_out_path = os.path.join(PREVIEW_DIR, f"{name}_face.png")
+    scene.render.filepath = face_out_path
+    bpy.ops.render.render(write_still=True)
+    print(f"Rendered preview {face_out_path}")
 
 
 def export_glb(name):
