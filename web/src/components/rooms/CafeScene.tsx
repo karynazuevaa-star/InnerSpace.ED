@@ -54,6 +54,21 @@ function conversationGroup(positions: [number, number, number][]): ConversationC
 const TABLE1_HAND_LOWER: [number, number, number] = [1.945, 0.785, -3.125];
 const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.02];
 
+// Table 2's non-eating (left) hand - reported directly that it should
+// rest on the table, gently bent at the elbow, rather than default onto
+// the thigh like an arm with no override at all. Reuses the same `target`
+// mechanism as table1's handhold (a fixed point, aimed at once - see the
+// `posed.current` block in idleAnimation.tsx), which already applies a
+// palm-down orientation and the same gently-curled resting fingers table1
+// uses, for free. Each point sits ~0.15m off-center toward its own seat
+// and just inside the table edge (0.38m from table center, radius 0.42) -
+// near enough to read as their own side of the table, not stretched to
+// the middle where it'd overlap the other hand or the shared food plates.
+// Y matches the FoodPlate height (0.74) plus a hair of clearance so the
+// hand sits visibly ON the surface instead of clipping into it.
+const TABLE2_AVERAGE_LEFT_HAND: [number, number, number] = [3.25, 0.75, -0.05];
+const TABLE2_CASUALSUIT_LEFT_HAND: [number, number, number] = [3.55, 0.75, -0.75];
+
 // Turn-taking groups (see ConversationConfig) - one call per table that
 // should read as mid-conversation. Table 3 (solo) and table 4 (one NPC
 // absorbed in her phone) are left out on purpose: nobody to talk to, and
@@ -64,7 +79,7 @@ const [TABLE1_TALK_LACE, TABLE1_TALK_HEAVIER] = conversationGroup([
 ]);
 const [TABLE2_TALK_AVERAGE, TABLE2_TALK_CASUALSUIT] = conversationGroup([
   [3.4, 0, 0.22],
-  [4.02, 0, -0.4],
+  [3.4, 0, -1.02],
 ]);
 const [TABLE5_TALK_ASIAN, TABLE5_TALK_NATIVE, TABLE5_TALK_KNIT] = conversationGroup([
   [-3.6, 0, -1.1],
@@ -83,8 +98,13 @@ const NPCS: NpcConfig[] = [
   // Table 2 (3.4,-0.4): the other two guys together, eating - seats pulled
   // in to 0.62m from the table center (see CafeEnvironment.tsx), matching
   // table1, so they read as close enough to actually reach their plates.
-  { position: [3.4, 0, 0.22], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_AVERAGE },
-  { position: [4.02, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_CASUALSUIT },
+  // Seated opposite each other (north/south) rather than at adjacent
+  // corners, so they're still ~1.24m apart from EACH OTHER despite both
+  // being close to the table - see CafeEnvironment.tsx's own comment.
+  // Left hand rests on the table (TABLE2_*_LEFT_HAND) since only the right
+  // is busy eating.
+  { position: [3.4, 0, 0.22], rotationY: Math.PI, preset: 'npc_male_average', seated: true, leftArm: { target: TABLE2_AVERAGE_LEFT_HAND }, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_AVERAGE },
+  { position: [3.4, 0, -1.02], rotationY: 0, preset: 'npc_male_casualsuit', seated: true, leftArm: { target: TABLE2_CASUALSUIT_LEFT_HAND }, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_CASUALSUIT },
 
   // Table 3 (-2.6,1.4): thinner alone, coffee on the table
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },

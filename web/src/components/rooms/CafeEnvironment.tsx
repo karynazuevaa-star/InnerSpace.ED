@@ -43,13 +43,24 @@ export function CafeEnvironment() {
           visible ~27cm gap between the chairs and the table edge, reading
           as too far back to plausibly reach their own plates (reported
           directly, with a screenshot). Pulled in to the same 0.62m table1
-          already uses. */}
+          already uses.
+          That fix alone then put the two chairs uncomfortably close
+          TO EACH OTHER, not just the table - both had moved toward the
+          same center point while staying at adjacent (90 degrees apart)
+          corners, so the gap between them shrank along with the gap to
+          the table (reported directly, with a screenshot of their legs
+          nearly overlapping under the table). Moved the second chair to
+          the opposite (south) side instead of the adjacent (east) one -
+          same 0.62m from center either way, but now 1.24m from the other
+          chair instead of 0.88m, close to what the original, too-far-out
+          arrangement had (1.27m) without giving back the table-distance
+          fix. */}
       <Table position={[3.4, 0, -0.4]} />
       <Chair position={[3.4, 0, 0.22]} rotationY={Math.PI} />
-      <Chair position={[4.02, 0, -0.4]} rotationY={-Math.PI / 2} />
+      <Chair position={[3.4, 0, -1.02]} rotationY={0} />
       <PendantLight position={[3.4, 2.6, -0.4]} />
-      <FoodPlate position={[3.35, 0.74, -0.15]} />
-      <FoodPlate position={[3.65, 0.74, -0.55]} />
+      <FoodPlate position={[3.4, 0.74, -0.2]} />
+      <FoodPlate position={[3.4, 0.74, -0.6]} />
 
       <Table position={[-2.6, 0, 1.4]} />
       <Chair position={[-2.6, 0, 2.3]} rotationY={Math.PI} />
