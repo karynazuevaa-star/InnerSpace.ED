@@ -34,8 +34,8 @@ export function CafeEnvironment() {
       <PendantLight position={[-2.8, 2.6, -4.4]} />
 
       <Table position={[1.6, 0, -3.4]} />
-      <Chair position={[1.6, 0, -2.85]} rotationY={Math.PI} />
-      <Chair position={[2.15, 0, -3.4]} rotationY={-Math.PI / 2} />
+      <Chair position={[1.6, 0, -2.78]} rotationY={Math.PI} />
+      <Chair position={[2.22, 0, -3.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[1.6, 2.6, -3.4]} />
       <FoodPlate position={[1.6, 0.74, -3.6]} />
 

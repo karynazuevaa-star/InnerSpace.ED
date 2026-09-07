@@ -33,16 +33,23 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // hand instead of resting on it). Pulling just her target ~5cm back
 // toward her own seat brings it inside her actual reach without changing
 // his.
-const TABLE1_HAND_LOWER: [number, number, number] = [1.875, 0.785, -3.125];
-const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.09];
+//
+// Both seats then moved another ~7cm further from the table on top of
+// that (see CafeEnvironment.tsx) - male_heavier's own belly was visibly
+// poking through the tabletop at the original tighter distance (reported
+// directly, with a screenshot). These two points were recomputed for
+// that new distance, same relative pattern as before (shared midpoint,
+// lace_ruffle's own point pulled back toward her).
+const TABLE1_HAND_LOWER: [number, number, number] = [1.945, 0.785, -3.125];
+const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.02];
 
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
   // on the table - seats pulled in close (see CafeEnvironment.tsx) so
   // their hands can actually reach each other. lace_ruffle's hand rests on
   // top, male_heavier's underneath.
-  { position: [1.6, 0, -2.85], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER } },
-  { position: [2.15, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER } },
+  { position: [1.6, 0, -2.78], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER } },
+  { position: [2.22, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER } },
 
   // Table 2 (3.4,-0.4): the other two guys together, eating
   { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' } },
