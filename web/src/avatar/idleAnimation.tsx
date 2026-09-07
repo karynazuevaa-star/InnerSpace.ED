@@ -810,14 +810,14 @@ const CONVERSATION_TABLE_GLANCE_DURATION_SECONDS = 1.8;
 const CONVERSATION_TABLE_LOOK_PITCH_DEGREES = -18;
 // No jaw bone in this rig (see mouth_open's own comment in
 // 02_generate_body.py), so a `mouth_open` mesh-deformation morph target
-// stands in for jaw articulation while speaking. Pulses roughly at speech
-// rate rather than a slow smooth open/close - Math.sin raised to a power
-// biases the cycle toward closed with brief, quicker openings, closer to
-// how a mouth actually moves through syllables than a metronomic wide
-// gape. Capped well short of 1 (a full jaw-drop reads as a yawn/scream,
-// not talking).
-const CONVERSATION_MOUTH_TALK_PERIOD_SECONDS = 0.32;
-const CONVERSATION_MOUTH_OPEN_MAX = 0.4;
+// stands in for jaw articulation while speaking. First pass (0.32s period,
+// max 0.4, sin^1.5) read as too hard and too fast - opening sharply on
+// every cycle - reported directly. Slowed down and softened: a longer
+// period, a much lower ceiling, and a steeper power (sin^2.2) that spends
+// most of the cycle near-closed with only a brief, gentle part rather than
+// swinging wide every beat.
+const CONVERSATION_MOUTH_TALK_PERIOD_SECONDS = 0.55;
+const CONVERSATION_MOUTH_OPEN_MAX = 0.2;
 // How briskly the head eases toward a new look target - low frequency,
 // critically damped (no overshoot/wobble) so a turn-change reads as a
 // smooth, unhurried glance instead of snapping instantly to face the new
@@ -1020,7 +1020,7 @@ function computeMouthOpen(conversation: ConversationConfig, t: number): number {
   const speakerIndex = Math.floor(t / CONVERSATION_TURN_SECONDS) % peers.length;
   if (speakerIndex !== selfIndex) return 0;
   const cycle = Math.max(0, Math.sin((t / CONVERSATION_MOUTH_TALK_PERIOD_SECONDS) * Math.PI * 2));
-  return cycle ** 1.5 * CONVERSATION_MOUTH_OPEN_MAX;
+  return cycle ** 2.2 * CONVERSATION_MOUTH_OPEN_MAX;
 }
 
 // A held fork for the eating activity - plain low-poly primitives, same
