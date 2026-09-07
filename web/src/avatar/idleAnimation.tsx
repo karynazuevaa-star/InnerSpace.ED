@@ -233,6 +233,54 @@ function aimBoneAtPointExact(
   endBone.updateMatrixWorld(true);
 }
 
+// Rotates the WRIST bone itself (not the forearm) so the palm faces a
+// given world direction - aimBoneAtPointExact only ever pointed the
+// forearm at the target, leaving the wrist's own twist wherever the rig's
+// rest pose happened to put it, which read as a stiff, spread-open hand
+// rather than one resting flat on a table (reported directly, with a
+// screenshot). Measures the hand's own current "palm normal" from three
+// live points (wrist, thumb base, pinky base) rather than assuming what
+// the wrist bone's local axes mean - this rig's bones have repeatedly
+// turned out to carry unpredictable twists in their own rest orientation
+// (see aimBoneAt's own comment above), so a guessed local rotation would
+// have been just as likely to turn the palm the wrong way.
+function aimPalmNormal(scene: THREE.Object3D, side: 'L' | 'R', desiredWorldNormal: THREE.Vector3) {
+  const wrist = scene.getObjectByName(`wrist${side}`);
+  const thumbBase = scene.getObjectByName(`finger1-1${side}`);
+  const pinkyBase = scene.getObjectByName(`finger5-1${side}`);
+  if (!wrist || !thumbBase || !pinkyBase || !wrist.parent) return;
+
+  const wristPos = new THREE.Vector3();
+  const thumbPos = new THREE.Vector3();
+  const pinkyPos = new THREE.Vector3();
+  wrist.getWorldPosition(wristPos);
+  thumbBase.getWorldPosition(thumbPos);
+  pinkyBase.getWorldPosition(pinkyPos);
+
+  const acrossPalm = thumbPos.clone().sub(wristPos);
+  const alongPalm = pinkyPos.clone().sub(wristPos);
+  // The winding that puts the normal on the palm side for a right hand
+  // puts it on the back-of-hand side for a left hand, since the two
+  // hands mirror each other - flipped per side rather than guessed once.
+  const currentNormal = side === 'R'
+    ? new THREE.Vector3().crossVectors(acrossPalm, alongPalm).normalize()
+    : new THREE.Vector3().crossVectors(alongPalm, acrossPalm).normalize();
+
+  const worldDelta = new THREE.Quaternion().setFromUnitVectors(currentNormal, desiredWorldNormal.clone().normalize());
+  const parentWorldQuat = new THREE.Quaternion();
+  wrist.parent.getWorldQuaternion(parentWorldQuat);
+  const localDelta = parentWorldQuat.clone().invert().multiply(worldDelta).multiply(parentWorldQuat);
+  wrist.quaternion.premultiply(localDelta);
+  wrist.updateMatrixWorld(true);
+}
+
+// A gentle, relaxed curl for a hand resting palm-down on a table - much
+// lighter than EATING_GRIP_DEGREES's closed-fist curl (see the eating-hand
+// loop below), since a resting hand isn't gripping anything, just settled
+// with its fingers not held rigidly flat either (reported directly - the
+// hand needed to look "semi-bent", not spread stiff and open).
+const HANDHOLD_CURL_DEGREES: Record<number, number> = { 1: 18, 2: 14, 3: 10 };
+
 // Meshes that carry morph targets, cached per scene the first time they're
 // looked up (called every frame for blinking, unlike bodyMorphs.ts's own
 // version of this traversal which only runs when a slider changes).
@@ -856,6 +904,20 @@ export function SeatedPose({
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
           if (!override?.target) continue;
           aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, new THREE.Vector3(...override.target));
+          // Palm down onto the table, fingers gently curled rather than
+          // held rigidly flat - see aimPalmNormal's own comment for why
+          // this needs measuring rather than guessing.
+          aimPalmNormal(scene, side, new THREE.Vector3(0, -1, 0));
+          for (const finger of [2, 3, 4, 5]) {
+            for (const segment of [1, 2, 3]) {
+              applyRel(
+                [scene], restMap, `finger${finger}-${segment}${side}`,
+                THREE.MathUtils.degToRad(HANDHOLD_CURL_DEGREES[segment]), 0, 0,
+              );
+            }
+          }
+          applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(10), 0, 0);
+          applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(8), 0, 0);
         }
 
         // Prototype: give an 'eating' hand something to actually hold,
