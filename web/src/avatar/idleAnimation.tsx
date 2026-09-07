@@ -277,9 +277,11 @@ function aimPalmNormal(scene: THREE.Object3D, side: 'L' | 'R', desiredWorldNorma
 // A gentle, relaxed curl for a hand resting palm-down on a table - much
 // lighter than EATING_GRIP_DEGREES's closed-fist curl (see the eating-hand
 // loop below), since a resting hand isn't gripping anything, just settled
-// with its fingers not held rigidly flat either (reported directly - the
-// hand needed to look "semi-bent", not spread stiff and open).
-const HANDHOLD_CURL_DEGREES: Record<number, number> = { 1: 18, 2: 14, 3: 10 };
+// with its fingers not held rigidly flat either. The first pass at this
+// (18/14/10) read as too curled - closer to a soft fist than a hand
+// simply laid flat on the table (reported directly, with a screenshot) -
+// pulled back to a subtler bend.
+const HANDHOLD_CURL_DEGREES: Record<number, number> = { 1: 7, 2: 5, 3: 3 };
 
 // Meshes that carry morph targets, cached per scene the first time they're
 // looked up (called every frame for blinking, unlike bodyMorphs.ts's own
@@ -916,8 +918,8 @@ export function SeatedPose({
               );
             }
           }
-          applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(10), 0, 0);
-          applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(8), 0, 0);
+          applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(4), 0, 0);
+          applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(3), 0, 0);
         }
 
         // Prototype: give an 'eating' hand something to actually hold,
