@@ -83,6 +83,11 @@ CURATED_TARGETS = [
     # which rotation axis/sign was tried.
     ("expression/units/caucasian/eye-left-closure.target.gz", "eye_left_closure"),
     ("expression/units/caucasian/eye-right-closure.target.gz", "eye_right_closure"),
+    # Same deal for talking (idleAnimation.tsx drives this one too, 0..1, no
+    # UI slider) - the rig has no jaw bone, so this MakeHuman expression
+    # target (a real lip/mouth mesh deformation) stands in for jaw
+    # articulation during conversation.
+    ("expression/units/caucasian/mouth-open.target.gz", "mouth_open"),
 ]
 
 

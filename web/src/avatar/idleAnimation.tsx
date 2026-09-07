@@ -808,6 +808,16 @@ const CONVERSATION_TABLE_GLANCE_DURATION_SECONDS = 1.8;
 // downward glance at the table needs a NEGATIVE pitch. Verified against
 // the standard X-axis rotation matrix (y'=y*cosθ-z*sinθ), not eyeballed.
 const CONVERSATION_TABLE_LOOK_PITCH_DEGREES = -18;
+// No jaw bone in this rig (see mouth_open's own comment in
+// 02_generate_body.py), so a `mouth_open` mesh-deformation morph target
+// stands in for jaw articulation while speaking. Pulses roughly at speech
+// rate rather than a slow smooth open/close - Math.sin raised to a power
+// biases the cycle toward closed with brief, quicker openings, closer to
+// how a mouth actually moves through syllables than a metronomic wide
+// gape. Capped well short of 1 (a full jaw-drop reads as a yawn/scream,
+// not talking).
+const CONVERSATION_MOUTH_TALK_PERIOD_SECONDS = 0.32;
+const CONVERSATION_MOUTH_OPEN_MAX = 0.4;
 // How briskly the head eases toward a new look target - low frequency,
 // critically damped (no overshoot/wobble) so a turn-change reads as a
 // smooth, unhurried glance instead of snapping instantly to face the new
@@ -977,9 +987,10 @@ function computeHeadTurnTarget(forward: THREE.Vector3, conversation: Conversatio
     yaw = THREE.MathUtils.clamp(Math.atan2(cross, dot), -maxYaw, maxYaw);
   }
 
-  // No real mouth movement to drive (this rig bakes no mouth/jaw morph
-  // target), so a small head bob stands in for "actively talking" while
-  // speaking; a much gentler nod for "attentive listening" otherwise.
+  // A small head bob for "actively talking" while speaking (now paired
+  // with real mouth movement - see computeMouthOpen - rather than standing
+  // in for it alone); a much gentler nod for "attentive listening"
+  // otherwise.
   const pitch = isSpeaking
     ? Math.sin((t / CONVERSATION_SPEAK_BOB_PERIOD_SECONDS) * Math.PI * 2) *
       THREE.MathUtils.degToRad(CONVERSATION_SPEAK_BOB_DEGREES)
@@ -997,6 +1008,19 @@ function computeHeadTurnTarget(forward: THREE.Vector3, conversation: Conversatio
   }
 
   return [pitch, yaw];
+}
+
+// Whether-speaking check duplicated from computeHeadTurnTarget rather than
+// threaded through it: this doesn't depend on `forward` (mouth movement
+// isn't a world-space rotation) and is applied once per frame across all
+// of an NPC's scenes via applyMorphInfluence, not per-scene like the head
+// turn - see the SeatedPose call site.
+function computeMouthOpen(conversation: ConversationConfig, t: number): number {
+  const { peers, selfIndex } = conversation;
+  const speakerIndex = Math.floor(t / CONVERSATION_TURN_SECONDS) % peers.length;
+  if (speakerIndex !== selfIndex) return 0;
+  const cycle = Math.max(0, Math.sin((t / CONVERSATION_MOUTH_TALK_PERIOD_SECONDS) * Math.PI * 2));
+  return cycle ** 1.5 * CONVERSATION_MOUTH_OPEN_MAX;
 }
 
 // A held fork for the eating activity - plain low-poly primitives, same
@@ -1277,6 +1301,7 @@ export function SeatedPose({
 
     applyMorphInfluence(scenes, 'eye_left_closure', 0);
     applyMorphInfluence(scenes, 'eye_right_closure', 0);
+    applyMorphInfluence(scenes, 'mouth_open', conversation ? computeMouthOpen(conversation, t) : 0);
   });
 
   return null;

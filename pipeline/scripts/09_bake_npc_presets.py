@@ -149,8 +149,9 @@ OUTFIT_MHCLO = {
 }
 
 # (rel path under MPFB_TARGETS_DIR, raw target name) - same source list as
-# 02_generate_body.py's CURATED_TARGETS, minus the two blink units (handled
-# separately below since those stay live, not baked to a fixed value).
+# 02_generate_body.py's CURATED_TARGETS, minus the blink and mouth-open
+# units (handled separately below since those stay live, not baked to a
+# fixed value).
 BODY_TARGET_FILES = {
     "weight_waist_decr": "torso/measure-waist-circ-decr.target.gz",
     "weight_waist_incr": "torso/measure-waist-circ-incr.target.gz",
@@ -177,9 +178,12 @@ BODY_TARGET_FILES = {
     "face_r_decr": "cheek/r-cheek-volume-decr.target.gz",
     "face_r_incr": "cheek/r-cheek-volume-incr.target.gz",
 }
-BLINK_TARGET_FILES = {
+LIVE_TARGET_FILES = {
     "eye_left_closure": "expression/units/caucasian/eye-left-closure.target.gz",
     "eye_right_closure": "expression/units/caucasian/eye-right-closure.target.gz",
+    # No jaw bone in this rig - idleAnimation.tsx drives this live mesh
+    # deformation during conversation instead, same as 02_generate_body.py.
+    "mouth_open": "expression/units/caucasian/mouth-open.target.gz",
 }
 
 
@@ -1019,10 +1023,10 @@ def build_preset(HumanService, TargetService, preset):
         TargetService.load_target(basemesh, path, weight=weight, name=shape_name)
     bake_current_shape_to_basis(basemesh)
 
-    # Blink stays a LIVE morph target (idleAnimation.tsx drives it at
-    # runtime) - loaded fresh, at weight 0, after the body shape is baked
-    # flat so it isn't itself baked away.
-    for shape_name, rel_path in BLINK_TARGET_FILES.items():
+    # Blink and mouth-open stay LIVE morph targets (idleAnimation.tsx drives
+    # them at runtime) - loaded fresh, at weight 0, after the body shape is
+    # baked flat so they aren't themselves baked away.
+    for shape_name, rel_path in LIVE_TARGET_FILES.items():
         path = os.path.join(MPFB_TARGETS_DIR, rel_path)
         TargetService.load_target(basemesh, path, weight=0.0, name=shape_name)
 
