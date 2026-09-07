@@ -64,10 +64,16 @@ const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.02];
 // and just inside the table edge (0.38m from table center, radius 0.42) -
 // near enough to read as their own side of the table, not stretched to
 // the middle where it'd overlap the other hand or the shared food plates.
-// Y matches the FoodPlate height (0.74) plus a hair of clearance so the
-// hand sits visibly ON the surface instead of clipping into it.
-const TABLE2_AVERAGE_LEFT_HAND: [number, number, number] = [3.25, 0.75, -0.05];
-const TABLE2_CASUALSUIT_LEFT_HAND: [number, number, number] = [3.55, 0.75, -0.75];
+// Y=0.75 (1cm above the table's top face at 0.74) wasn't enough clearance
+// - aimPalmNormal turns the palm to face straight down, so the actual
+// palm/finger mesh sits BELOW the wrist point this target aims, and at
+// only 1cm the whole hand read as sunk into the tabletop (reported
+// directly, with a screenshot). Matched to TABLE1_HAND_LOWER's already-
+// correct height instead of a fresh guess - that's the same "one hand
+// resting flat at table height" case (the other table1 point, _UPPER, is
+// higher because it stacks a second hand on top of that one).
+const TABLE2_AVERAGE_LEFT_HAND: [number, number, number] = [3.25, 0.785, -0.05];
+const TABLE2_CASUALSUIT_LEFT_HAND: [number, number, number] = [3.55, 0.785, -0.75];
 
 // Turn-taking groups (see ConversationConfig) - one call per table that
 // should read as mid-conversation. Table 3 (solo) and table 4 (one NPC
