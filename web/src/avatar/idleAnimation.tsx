@@ -947,8 +947,16 @@ function computeHeadTurnTarget(forward: THREE.Vector3, conversation: Conversatio
     // Signed angle from `forward` to `dir` about the world Y axis - a
     // plain 2D atan2 in the horizontal plane, not a full aimBoneAt solve,
     // since this only ever needs a yaw (never leans the head toward a
-    // peer).
-    const cross = forward.x * dir.z - forward.z * dir.x;
+    // peer). NOT the textbook 2D-cross atan2(fx*dz-fz*dx, dot) - checked
+    // against Three.js's own +Y rotation matrix (x'=x*cosθ+z*sinθ,
+    // z'=-x*sinθ+z*cosθ, e.g. +X rotates toward -Z under +90°): that
+    // textbook formula measures the opposite rotational sense from
+    // Three.js's actual +Y convention, so heads were turning away from
+    // (or past, in the wrong direction from) whoever they should have
+    // been looking at - reported directly, with screenshots of everyone
+    // looking down/forward instead of at each other. This is the sign
+    // that actually matches +Y.
+    const cross = forward.z * dir.x - forward.x * dir.z;
     const dot = forward.x * dir.x + forward.z * dir.z;
     const maxYaw = THREE.MathUtils.degToRad(CONVERSATION_MAX_LOOK_DEGREES);
     yaw = THREE.MathUtils.clamp(Math.atan2(cross, dot), -maxYaw, maxYaw);
