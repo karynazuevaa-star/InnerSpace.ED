@@ -6,24 +6,31 @@ import { PlayerControls, type RoomBounds } from './PlayerControls';
 import { SceneLoader } from '../SceneLoader';
 import { useLanguage } from '../../i18n/LanguageContext';
 
+// The Chair prop's own backrest sits on its -Z side (see CafeEnvironment.tsx),
+// so a chair at rotationY=0 has its seat facing +Z, not -Z - confirmed
+// directly (screenshots of 5 NPCs sitting with their backs to their own
+// table, chair included) after an earlier attempt got this backwards by
+// assuming 0 meant -Z. Every "north" seat (higher z than its table) needs
+// rotationY=PI to face the table (-Z); the "east"/"west" (+-PI/2) seats
+// were already correct, since they were never flagged.
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together
-  { position: [1.6, 0, -2.5], rotationY: 0, preset: 'npc_lace_ruffle', seated: true },
+  { position: [1.6, 0, -2.5], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true },
   { position: [2.5, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true },
 
   // Table 2 (3.4,-0.4): the other two guys together
-  { position: [3.4, 0, 0.5], rotationY: 0, preset: 'npc_male_average', seated: true },
+  { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true },
   { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true },
 
   // Table 3 (-2.6,1.4): thinner alone
-  { position: [-2.6, 0, 2.3], rotationY: 0, preset: 'npc_thinner', seated: true },
+  { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },
 
   // Table 4 (0.5,1.8): polka_skirt + tiered_dress together
-  { position: [0.5, 0, 2.7], rotationY: 0, preset: 'npc_polka_skirt', seated: true },
+  { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true },
   { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true },
 
   // Table 5 (-3.6,-2.0): the remaining three together - now with a 3rd chair
-  { position: [-3.6, 0, -1.1], rotationY: 0, preset: 'npc_asian_dress', seated: true },
+  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true },
   { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true },
   { position: [-4.5, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true },
 ];

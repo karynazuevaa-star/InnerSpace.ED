@@ -34,27 +34,27 @@ export function CafeEnvironment() {
       <PendantLight position={[-2.8, 2.6, -4.4]} />
 
       <Table position={[1.6, 0, -3.4]} />
-      <Chair position={[1.6, 0, -2.5]} rotationY={0} />
+      <Chair position={[1.6, 0, -2.5]} rotationY={Math.PI} />
       <Chair position={[2.5, 0, -3.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[1.6, 2.6, -3.4]} />
 
       <Table position={[3.4, 0, -0.4]} />
-      <Chair position={[3.4, 0, 0.5]} rotationY={0} />
+      <Chair position={[3.4, 0, 0.5]} rotationY={Math.PI} />
       <Chair position={[4.3, 0, -0.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[3.4, 2.6, -0.4]} />
 
       <Table position={[-2.6, 0, 1.4]} />
-      <Chair position={[-2.6, 0, 2.3]} rotationY={0} />
+      <Chair position={[-2.6, 0, 2.3]} rotationY={Math.PI} />
       <Chair position={[-1.7, 0, 1.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[-2.6, 2.6, 1.4]} />
 
       <Table position={[0.5, 0, 1.8]} />
-      <Chair position={[0.5, 0, 2.7]} rotationY={0} />
+      <Chair position={[0.5, 0, 2.7]} rotationY={Math.PI} />
       <Chair position={[1.4, 0, 1.8]} rotationY={-Math.PI / 2} />
       <PendantLight position={[0.5, 2.6, 1.8]} />
 
       <Table position={[-3.6, 0, -2.0]} />
-      <Chair position={[-3.6, 0, -1.1]} rotationY={0} />
+      <Chair position={[-3.6, 0, -1.1]} rotationY={Math.PI} />
       <Chair position={[-2.7, 0, -2.0]} rotationY={-Math.PI / 2} />
       <Chair position={[-4.5, 0, -2.0]} rotationY={Math.PI / 2} />
       <PendantLight position={[-3.6, 2.6, -2.0]} />
