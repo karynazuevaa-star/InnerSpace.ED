@@ -51,6 +51,11 @@ function springStep(motion: SpringMotion, target: number, delta: number, frequen
 // WeakMap garbage-collect if that scene is ever actually discarded.
 const restMap = new WeakMap<THREE.Object3D, Map<string, THREE.Quaternion>>();
 const restChestState = new WeakMap<THREE.Object3D, { quaternion: THREE.Quaternion; position: THREE.Vector3 }>();
+// SeatedPose's own per-scene "which way is this NPC facing" - computed
+// once (the hip line it's derived from doesn't move once seated), then
+// reused every frame by the activity animation loop instead of
+// re-deriving it each time.
+const seatedForwardCache = new WeakMap<THREE.Object3D, THREE.Vector3>();
 
 // Lazily captures each bone's rest quaternion the first time it's seen (the
 // glTF bind pose, since nothing poses these scenes before this runs) and
@@ -164,6 +169,56 @@ function aimBoneAtPoint(
   const dir = targetWorldPos.clone().sub(fromPos);
   if (dir.lengthSq() < 1e-8) return;
   aimBoneAt(scene, boneName, fromBoneName, endBoneName, dir.normalize());
+}
+
+// Captured once per end-bone (the glTF bind-pose local position, since
+// nothing else ever moves this bone's own position - only its rotation),
+// reused by aimBoneAtPointExact below every time it runs so a per-frame
+// caller always measures its "how far off am I" error from the same
+// untouched baseline instead of compounding an already-patched position.
+const reachRestPosition = new WeakMap<THREE.Object3D, THREE.Vector3>();
+
+// aimBoneAtPoint only orients the segment toward a target - it never
+// stretches it, so the hand lands wherever this character's own fixed
+// forearm length happens to put it, short of (or past) the actual target.
+// For two characters reaching for the same handhold spot from different
+// distances, that means two hands that both point at the target but never
+// actually meet (reported directly, with a screenshot: a visible gap
+// between the reaching hands even after moving the shared target closer).
+// This does the same direction-aim, then patches the END bone's own local
+// position (in its parent's space) so its world position lands EXACTLY on
+// target - a simple one-joint "stretchy" nudge, not a real IK solve. Only
+// used for the handhold override, not the phone/eating/gesture activity
+// targets - those already read fine as direction-only (confirmed
+// visually) and stretching the forearm every frame through a full
+// food-to-mouth cycle risked a visibly elongating/shrinking arm.
+function aimBoneAtPointExact(
+  scene: THREE.Object3D,
+  boneName: string,
+  fromBoneName: string,
+  endBoneName: string,
+  targetWorldPos: THREE.Vector3,
+) {
+  aimBoneAtPoint(scene, boneName, fromBoneName, endBoneName, targetWorldPos);
+  const endBone = scene.getObjectByName(endBoneName);
+  if (!endBone || !endBone.parent) return;
+
+  let rest = reachRestPosition.get(endBone);
+  if (!rest) {
+    rest = endBone.position.clone();
+    reachRestPosition.set(endBone, rest);
+  }
+  endBone.position.copy(rest);
+  endBone.updateMatrixWorld(true);
+  const naturalPos = new THREE.Vector3();
+  endBone.getWorldPosition(naturalPos);
+  const worldError = targetWorldPos.clone().sub(naturalPos);
+
+  const parentWorldQuat = new THREE.Quaternion();
+  endBone.parent.getWorldQuaternion(parentWorldQuat);
+  const localError = worldError.applyQuaternion(parentWorldQuat.invert());
+  endBone.position.copy(rest).add(localError);
+  endBone.updateMatrixWorld(true);
 }
 
 // Meshes that carry morph targets, cached per scene the first time they're
@@ -601,22 +656,87 @@ export interface SeatedArmOverride {
 // meters - tuned by eye against the rig's own proportions, not measured
 // off anything. `forward` component brings the hand out in front of the
 // body; the (usually negative) `up` component drops it to the right
-// height for that activity - phone lower at chest height, food right at
-// mouth height, a gesture out a little further and a little higher than
-// either.
+// height for that activity. `phone`'s forward offset was reported as too
+// small - the hand read as resting against the stomach instead of held up
+// to look at - and increased accordingly.
 const ARM_ACTIVITY_OFFSETS: Record<SeatedArmActivity, { forward: number; up: number }> = {
-  phone: { forward: 0.16, up: -0.32 },
+  phone: { forward: 0.24, up: -0.12 },
   eating: { forward: 0.14, up: -0.08 },
   gesture: { forward: 0.34, up: -0.2 },
 };
 
-function computeActivityTarget(scene: THREE.Object3D, forward: THREE.Vector3, activity: SeatedArmActivity) {
+// The "low" end of the eating cycle - roughly table height, further out
+// in front - alternates with ARM_ACTIVITY_OFFSETS.eating (the "at the
+// mouth" end) once every EATING_PERIOD_SECONDS, so the hand actually
+// travels food-to-mouth-and-back instead of freezing at the mouth.
+const EATING_PLATE_OFFSET = { forward: 0.34, up: -0.56 };
+const EATING_PERIOD_SECONDS = 2.6;
+
+// Small continuous motion for the other two activities - reported
+// directly that a single frozen pose read as static/lifeless. Neither
+// needs a real destination the way eating does, just a subtle live drift
+// around the base pose: phone gets a small vertical bob (a thumb
+// scrolling), gesture a slightly larger forward/back one (emphasis while
+// talking).
+const PHONE_BOB_METERS = 0.018;
+const PHONE_BOB_PERIOD_SECONDS = 2.3;
+const GESTURE_SWAY_METERS = 0.05;
+const GESTURE_SWAY_PERIOD_SECONDS = 1.9;
+
+function computeActivityTarget(
+  scene: THREE.Object3D,
+  forward: THREE.Vector3,
+  activity: SeatedArmActivity,
+  t: number,
+) {
   const head = scene.getObjectByName('head');
   if (!head) return null;
   const headPos = new THREE.Vector3();
   head.getWorldPosition(headPos);
-  const { forward: f, up } = ARM_ACTIVITY_OFFSETS[activity];
-  return headPos.add(forward.clone().multiplyScalar(f)).add(new THREE.Vector3(0, up, 0));
+  const UP = new THREE.Vector3(0, 1, 0);
+
+  if (activity === 'eating') {
+    const mouth = ARM_ACTIVITY_OFFSETS.eating;
+    const blend = 0.5 - 0.5 * Math.cos((t / EATING_PERIOD_SECONDS) * Math.PI * 2);
+    const f = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.forward, mouth.forward, blend);
+    const up = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.up, mouth.up, blend);
+    return headPos.add(forward.clone().multiplyScalar(f)).add(UP.clone().multiplyScalar(up));
+  }
+  if (activity === 'phone') {
+    const { forward: f, up } = ARM_ACTIVITY_OFFSETS.phone;
+    const bob = Math.sin((t / PHONE_BOB_PERIOD_SECONDS) * Math.PI * 2) * PHONE_BOB_METERS;
+    return headPos.add(forward.clone().multiplyScalar(f)).add(UP.clone().multiplyScalar(up + bob));
+  }
+  // gesture
+  const { forward: f, up } = ARM_ACTIVITY_OFFSETS.gesture;
+  const sway = Math.sin((t / GESTURE_SWAY_PERIOD_SECONDS) * Math.PI * 2) * GESTURE_SWAY_METERS;
+  return headPos.add(forward.clone().multiplyScalar(f + sway)).add(UP.clone().multiplyScalar(up));
+}
+
+// A held fork for the eating activity - plain low-poly primitives, same
+// style as CafeEnvironment.tsx's own food props, not a new asset. Built
+// once per hand the first time that hand's activity is 'eating', then
+// left alone - it's parented directly onto the wrist bone (a plain
+// THREE.Object3D child, not one of this file's own posed bones), so it
+// automatically follows every subsequent frame's forearm re-aim for
+// free, the same way a garment's sleeve already follows the arm
+// underneath it without needing its own per-frame code.
+function buildForkProp(): THREE.Group {
+  const group = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: '#cfcfcf', roughness: 0.3, metalness: 0.7 });
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.007, 0.1, 8), metal);
+  handle.rotation.x = Math.PI / 2;
+  handle.position.set(0, 0, -0.03);
+  group.add(handle);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.003, 0.035), metal);
+  head.position.set(0, 0, 0.035);
+  group.add(head);
+  for (const dx of [-0.007, -0.0025, 0.0025, 0.007]) {
+    const prong = new THREE.Mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.026, 6), metal);
+    prong.position.set(dx, 0, 0.062);
+    group.add(prong);
+  }
+  return group;
 }
 
 /**
@@ -666,6 +786,7 @@ export function SeatedPose({
         // this is the other perpendicular horizontal direction from that
         // same pair of vectors.
         const forward = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), sideways).normalize();
+        seatedForwardCache.set(scene, forward);
 
         aimBoneAt(scene, SEATED_LEG_BONES.upperlegL, SEATED_LEG_BONES.upperlegL, SEATED_LEG_BONES.lowerlegL, forward);
         aimBoneAt(scene, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.lowerlegR, forward);
@@ -685,20 +806,81 @@ export function SeatedPose({
         aimBoneAt(scene, 'lowerarm01L', 'lowerarm01L', 'wristL', armForwardDown);
         aimBoneAt(scene, 'lowerarm01R', 'lowerarm01R', 'wristR', armForwardDown);
 
-        // Activity overrides replace that default thigh-rest for whichever
-        // hand(s) have one, applied last so they always win.
+        // A fixed-point override (the handhold) replaces that default
+        // thigh-rest and never changes again, so it's applied once here.
+        // Activity overrides (phone/eating/gesture) need to move every
+        // frame instead - see the per-frame block below, which reuses the
+        // `forward` just cached above via seatedForwardCache.
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
-          if (!override) continue;
-          const target = override.target
-            ? new THREE.Vector3(...override.target)
-            : override.activity
-              ? computeActivityTarget(scene, forward, override.activity)
-              : null;
-          if (!target) continue;
-          aimBoneAtPoint(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+          if (!override?.target) continue;
+          aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, new THREE.Vector3(...override.target));
+        }
+
+        // Prototype: give an 'eating' hand something to actually hold,
+        // rather than just aiming an empty hand at the mouth - attached
+        // once, directly onto the wrist bone, so it inherits that bone's
+        // transform automatically every frame (same idea as a garment
+        // sleeve tracking the arm underneath it, just via real parenting
+        // here instead of applyRel's copy-the-rotation trick).
+        for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
+          if (override?.activity !== 'eating') continue;
+          const elbow = scene.getObjectByName(`lowerarm01${side}`);
+          const wrist = scene.getObjectByName(`wrist${side}`);
+          if (!elbow || !wrist) continue;
+
+          // Placed via world-space directions, not a guessed local Euler/
+          // position on the wrist bone itself - this rig's bones (see
+          // aimBoneAt's own comment above) carry unpredictable twists in
+          // their own rest orientation, so a guessed local offset landed
+          // the fork somewhere inside the fist/forearm rather than
+          // visibly held (reported directly - no fork visible in hand
+          // despite the console confirming it WAS attached). Building an
+          // explicit world-space basis first and converting into the
+          // wrist's local space sidesteps that the same way aimBoneAt
+          // itself does for rotations.
+          const elbowPos = new THREE.Vector3();
+          const wristPos = new THREE.Vector3();
+          elbow.getWorldPosition(elbowPos);
+          wrist.getWorldPosition(wristPos);
+          const zAxis = wristPos.clone().sub(elbowPos).normalize();
+          const worldUp = new THREE.Vector3(0, 1, 0);
+          const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
+          const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
+          const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+          const desiredWorldQuat = new THREE.Quaternion().setFromRotationMatrix(basis);
+          const wristWorldQuat = new THREE.Quaternion();
+          wrist.getWorldQuaternion(wristWorldQuat);
+
+          const fork = buildForkProp();
+          fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
+          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.05)).add(yAxis.clone().multiplyScalar(0.02));
+          fork.position.copy(wrist.worldToLocal(desiredWorldPos));
+          wrist.add(fork);
         }
       }
       posed.current = true;
+    }
+
+    // Activity overrides move every frame (food-to-mouth cycle, a small
+    // phone bob, a gesture sway) - reported directly that a single frozen
+    // pose read as static/lifeless, so unlike the handhold target above
+    // these can't be posed once inside the `posed.current` guard. Uses the
+    // exact/stretchy variant, not plain aimBoneAtPoint: the phone offset in
+    // particular reaches further forward than this rig's natural forearm
+    // length, and direction-only aiming left the hand short of it - the
+    // same "points at the target but never gets there" gap reported for
+    // the handhold pose, just less obvious here since there's no second
+    // hand to visibly miss. Reported directly as the phone hand reading as
+    // still resting against the stomach.
+    for (const scene of scenes) {
+      const forward = seatedForwardCache.get(scene);
+      if (!forward) continue;
+      for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
+        if (!override?.activity) continue;
+        const target = computeActivityTarget(scene, forward, override.activity, clock.getElapsedTime());
+        if (!target) continue;
+        aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+      }
     }
 
     // Same breathing bob as IdleAnimation - see that function's own comment

@@ -14,9 +14,15 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // rotationY=PI to face the table (-Z); the "east"/"west" (+-PI/2) seats
 // were already correct, since they were never flagged.
 // Table 1's shared point for the handhold pose - both npc_lace_ruffle and
-// npc_male_heavier aim a hand at this exact spot (table center, just above
-// the surface) instead of resting it on their own thigh.
-const TABLE1_HANDS: [number, number, number] = [1.6, 0.76, -3.4];
+// npc_male_heavier aim a hand at this exact spot instead of resting it on
+// their own thigh. Originally the table's own geometric center (1.6,-3.4),
+// but aimBoneAtPoint only orients the forearm toward a direction - it
+// doesn't stretch it - so a target further away than the character's own
+// natural reach left visible gaps between the two hands (reported
+// directly, with a screenshot). The midpoint between the two actual seat
+// positions ((1.6,-2.5) and (2.5,-3.4)) is much closer to each character's
+// own reach, and still reads as "hands meeting on the table" between them.
+const TABLE1_HANDS: [number, number, number] = [2.05, 0.76, -2.95];
 
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
