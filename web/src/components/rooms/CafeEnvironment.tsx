@@ -68,7 +68,15 @@ export function CafeEnvironment() {
       <Chair position={[-2.7, 0, -2.0]} rotationY={-Math.PI / 2} />
       <Chair position={[-4.5, 0, -2.0]} rotationY={Math.PI / 2} />
       <PendantLight position={[-3.6, 2.6, -2.0]} />
+      {/* One plate per seat, same idea as table2 - all three chairs now
+          rotate through an eating turn (see computeConversationRole in
+          idleAnimation.tsx), not just the seat nearest this original
+          plate, so native_skirt and knit_sweater need somewhere to reach
+          for too. Offset toward each one's own seat, same pattern as the
+          existing plate. */}
       <FoodPlate position={[-3.6, 0.74, -1.85]} />
+      <FoodPlate position={[-3.36, 0.74, -2.0]} />
+      <FoodPlate position={[-3.84, 0.74, -2.0]} />
     </group>
   );
 }

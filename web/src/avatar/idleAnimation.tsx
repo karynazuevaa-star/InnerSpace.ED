@@ -779,9 +779,12 @@ export interface ConversationConfig {
   selfIndex: number;
 }
 
-// One speaking turn, in seconds - long enough to read as an actual turn
-// rather than a nervous back-and-forth glance.
-const CONVERSATION_TURN_SECONDS = 6;
+// One speaking/listening/eating turn, in seconds - long enough that the
+// rotation itself stays unnoticeable (requested directly: "растянуть
+// каждую часть подольше, чтобы не было видно как сменяются"). Was 6s,
+// which read fine for a plain two-way speak/listen switch but was too
+// quick once a third role (eating) got layered on top of it.
+const CONVERSATION_TURN_SECONDS = 15;
 // Clamped so a peer seated at an awkward angle (nearly behind) doesn't
 // spin the head to face fully backward - reads as "glancing toward" past
 // this, which is about as far as a real seated turn comfortably goes.
@@ -825,6 +828,64 @@ const CONVERSATION_MOUTH_OPEN_MAX = 0.2;
 // switch itself was too abrupt, independent of the nod).
 const HEAD_TURN_SPRING_FREQUENCY = 1.7;
 const HEAD_TURN_SPRING_DAMPING = 1;
+// How quickly a hand's aim TARGET eases toward wherever the current role
+// (or activity/pause) says it should be, per second - an exponential ease
+// (1 - e^-rate*dt), not a snap to the new point the instant the role
+// changes. Needed once the speak/listen/eat rotation below started moving
+// a hand between very different places (gesturing near the chest, resting
+// on the lap, reaching for a plate) - a direct target swap read as an
+// instant jump (reported directly: "важно чтобы были плавные переходы").
+// ~1s to mostly settle at this rate, well within the 15s a role now holds.
+const ARM_TARGET_EASE_RATE = 2.2;
+const armTargetSmoothState = new WeakMap<THREE.Object3D, Partial<Record<'L' | 'R', THREE.Vector3>>>();
+
+/**
+ * A third role layered on top of the plain speak/listen split above,
+ * requested directly: "говорит - слушает - ест ... чередовать" (with a
+ * worked example - a three-person table where the speaker, listener and
+ * eater roles all rotate together every turn). Only meaningful with 3+
+ * peers - there's no separate "third person" to eat at a table of two, so
+ * those keep whatever static per-seat activity CafeScene.tsx already gives
+ * them (table2's guys, always eating/paused - see isConversationSpeaker's
+ * other call site) instead of this rotation.
+ */
+type ConversationRole = 'speak' | 'listen' | 'eat';
+
+function computeConversationRole(conversation: ConversationConfig, t: number): ConversationRole {
+  const { peers, selfIndex } = conversation;
+  const n = peers.length;
+  const speakerIndex = Math.floor(t / CONVERSATION_TURN_SECONDS) % n;
+  if (n < 3) return selfIndex === speakerIndex ? 'speak' : 'listen';
+  const offset = (selfIndex - speakerIndex + n) % n;
+  if (offset === 0) return 'speak';
+  if (offset === 1) return 'listen';
+  return 'eat';
+}
+
+// Per-role hand TARGET for the 3-role rotation - reuses computeActivityTarget
+// for 'speak' (gesture) and 'eat' (the same food-to-mouth cycle table2's
+// static eaters use); 'listen' has no existing activity to borrow, so it
+// reaches for the same head-relative point EATING_PLATE_OFFSET already
+// describes (a hand set down near the plate/lap) rather than inventing a
+// new offset - it's already tuned to look like a calmly-resting hand, not
+// just food-specific.
+function computeConversationArmTarget(
+  scene: THREE.Object3D,
+  forward: THREE.Vector3,
+  role: ConversationRole,
+  t: number,
+): THREE.Vector3 | null {
+  if (role === 'speak') return computeActivityTarget(scene, forward, 'gesture', t, false);
+  if (role === 'eat') return computeActivityTarget(scene, forward, 'eating', t, false);
+  const head = scene.getObjectByName('head');
+  if (!head) return null;
+  const headPos = new THREE.Vector3();
+  head.getWorldPosition(headPos);
+  const UP = new THREE.Vector3(0, 1, 0);
+  return headPos
+    .add(forward.clone().multiplyScalar(EATING_PLATE_OFFSET.forward))
+    .add(UP.clone().multiplyScalar(EATING_PLATE_OFFSET.up));
+}
 
 // Offsets are forward/up from the character's own head position, in
 // meters - tuned by eye against the rig's own proportions, not measured
@@ -1165,7 +1226,18 @@ export function SeatedPose({
         // sleeve tracking the arm underneath it, just via real parenting
         // here instead of applyRel's copy-the-rotation trick).
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
-          if (override?.activity !== 'eating') continue;
+          // A static 'eating' override (table2's guys) always gets a fork.
+          // A 3+-peer conversation's right hand (nothing else claiming it)
+          // also gets one pre-emptively, even on a turn where this seat
+          // starts out speaking or listening - the eat role will reach it
+          // eventually, and swapping a whole fork prop in and out with the
+          // rotation would be its own can of worms; simpler for everyone at
+          // that kind of table to just be holding one throughout, the way
+          // people don't usually put a fork all the way down between bites
+          // of a conversation.
+          const dynamicRoleEats =
+            side === 'R' && !override?.activity && !override?.target && !!conversation && conversation.peers.length >= 3;
+          if (override?.activity !== 'eating' && !dynamicRoleEats) continue;
           const wrist = scene.getObjectByName(`wrist${side}`);
           const gripFinger = scene.getObjectByName(`finger3-1${side}`);
           if (!wrist || !gripFinger) continue;
@@ -1238,31 +1310,54 @@ export function SeatedPose({
     }
 
     // Activity overrides move every frame (food-to-mouth cycle, a small
-    // phone bob, a gesture sway) - reported directly that a single frozen
-    // pose read as static/lifeless, so unlike the handhold target above
-    // these can't be posed once inside the `posed.current` guard. Uses the
-    // exact/stretchy variant, not plain aimBoneAtPoint: the phone offset in
-    // particular reaches further forward than this rig's natural forearm
-    // length, and direction-only aiming left the hand short of it - the
-    // same "points at the target but never gets there" gap reported for
-    // the handhold pose, just less obvious here since there's no second
-    // hand to visibly miss. Reported directly as the phone hand reading as
-    // still resting against the stomach.
+    // phone bob, a gesture sway, or the speak/listen/eat rotation below) -
+    // reported directly that a single frozen pose read as static/lifeless,
+    // so unlike the handhold target above these can't be posed once inside
+    // the `posed.current` guard. Uses the exact/stretchy variant, not plain
+    // aimBoneAtPoint: the phone offset in particular reaches further
+    // forward than this rig's natural forearm length, and direction-only
+    // aiming left the hand short of it - the same "points at the target
+    // but never gets there" gap reported for the handhold pose, just less
+    // obvious here since there's no second hand to visibly miss. Reported
+    // directly as the phone hand reading as still resting against the
+    // stomach.
     {
       const activityTime = clock.getElapsedTime();
-      // Only 'eating' pauses for a speaking turn - phone/gesture keep
-      // running regardless (gesture in particular reads as something you
-      // do WHILE talking, not instead of it).
+      const armDelta = Math.min(frameDelta, 1 / 30);
+      // Only a STATIC 'eating' override (table2's guys) pauses for its own
+      // speaking turn - phone/gesture keep running regardless (gesture in
+      // particular reads as something you do WHILE talking, not instead of
+      // it). A conversation's rotating eat role already only ever lands on
+      // whoever ISN'T currently speaking, so it needs no separate pause.
       const eatingPaused = !!conversation && isConversationSpeaker(conversation, activityTime);
+      const role = conversation && conversation.peers.length >= 3
+        ? computeConversationRole(conversation, activityTime)
+        : null;
       for (const scene of scenes) {
         const forward = seatedForwardCache.get(scene);
         if (!forward) continue;
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
-          if (!override?.activity) continue;
-          const paused = override.activity === 'eating' && eatingPaused;
-          const target = computeActivityTarget(scene, forward, override.activity, activityTime, paused);
-          if (!target) continue;
-          aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+          let rawTarget: THREE.Vector3 | null = null;
+          if (override?.activity) {
+            const paused = override.activity === 'eating' && eatingPaused;
+            rawTarget = computeActivityTarget(scene, forward, override.activity, activityTime, paused);
+          } else if (side === 'R' && !override?.target && role) {
+            rawTarget = computeConversationArmTarget(scene, forward, role, activityTime);
+          }
+          if (!rawTarget) continue;
+          // Ease toward rawTarget instead of snapping straight to it - see
+          // ARM_TARGET_EASE_RATE's own comment.
+          let smoothed = armTargetSmoothState.get(scene);
+          if (!smoothed) {
+            smoothed = {};
+            armTargetSmoothState.set(scene, smoothed);
+          }
+          if (!smoothed[side]) {
+            smoothed[side] = rawTarget.clone();
+          } else {
+            smoothed[side]!.lerp(rawTarget, 1 - Math.exp(-ARM_TARGET_EASE_RATE * armDelta));
+          }
+          aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, smoothed[side]!);
         }
       }
     }

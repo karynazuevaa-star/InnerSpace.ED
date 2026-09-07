@@ -94,8 +94,12 @@ const NPCS: NpcConfig[] = [
   { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true },
 
   // Table 5 (-3.6,-2.0): the remaining three together, mid-conversation -
-  // now with a 3rd chair
-  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, rightArm: { activity: 'gesture' }, conversation: TABLE5_TALK_ASIAN },
+  // speak/listen/eat rotates between all three (see computeConversationRole
+  // in idleAnimation.tsx) rather than any one of them having a fixed
+  // activity, so none of the three gets a rightArm override here - the
+  // rotation drives the right hand for all of them automatically once
+  // `conversation` has 3+ peers.
+  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, conversation: TABLE5_TALK_ASIAN },
   { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true, conversation: TABLE5_TALK_NATIVE },
   { position: [-4.5, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true, conversation: TABLE5_TALK_KNIT },
 ];
