@@ -851,8 +851,9 @@ const armTargetSmoothState = new WeakMap<THREE.Object3D, Partial<Record<'L' | 'R
  * eater roles all rotate together every turn). Only meaningful with 3+
  * peers - there's no separate "third person" to eat at a table of two, so
  * those keep whatever static per-seat activity CafeScene.tsx already gives
- * them (table2's guys, always eating/paused - see isConversationSpeaker's
- * other call site) instead of this rotation.
+ * them (table2/table4's eating or phone, switching to a gesture for their
+ * own speaking turn - see isConversationSpeaker's other call site) instead
+ * of this rotation.
  */
 type ConversationRole = 'speak' | 'listen' | 'eat';
 
@@ -880,8 +881,8 @@ function computeConversationArmTarget(
   role: ConversationRole,
   t: number,
 ): THREE.Vector3 | null {
-  if (role === 'speak') return computeActivityTarget(scene, forward, 'gesture', t, false);
-  if (role === 'eat') return computeActivityTarget(scene, forward, 'eating', t, false);
+  if (role === 'speak') return computeActivityTarget(scene, forward, 'gesture', t);
+  if (role === 'eat') return computeActivityTarget(scene, forward, 'eating', t);
   const head = scene.getObjectByName('head');
   if (!head) return null;
   const headPos = new THREE.Vector3();
@@ -947,7 +948,6 @@ function computeActivityTarget(
   forward: THREE.Vector3,
   activity: SeatedArmActivity,
   t: number,
-  paused: boolean,
 ) {
   const head = scene.getObjectByName('head');
   if (!head) return null;
@@ -957,16 +957,9 @@ function computeActivityTarget(
 
   if (activity === 'eating') {
     const mouth = ARM_ACTIVITY_OFFSETS.eating;
-    // Paused (this NPC's own turn to speak) forces blend to 0 - the exact
-    // same "fork resting on the plate" pose the cycle already passes
-    // through every rotation, just held instead of continuing on to the
-    // next bite. Requested directly: eating should alternate with talking
-    // rather than run the whole time regardless of who's speaking.
     const phase = t % EATING_PERIOD_SECONDS;
     let blend: number;
-    if (paused) {
-      blend = 0;
-    } else if (phase < EATING_LIFT_SECONDS) {
+    if (phase < EATING_LIFT_SECONDS) {
       blend = THREE.MathUtils.smoothstep(phase / EATING_LIFT_SECONDS, 0, 1);
     } else if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS) {
       blend = 1;
@@ -1299,15 +1292,19 @@ export function SeatedPose({
           // fork's rigid offset against that unrelated rest orientation
           // left it reading as twisted/sideways once the wrist rotated to
           // its real pose afterward (reported directly, with screenshots -
-          // forks sticking out at odd angles). Pre-aiming at a
-          // representative "food at the mouth" point first (t=2, mid chew
-          // phase - see EATING_LIFT/CHEW_SECONDS) samples the orientation
-          // it'll actually be held at instead; the real per-frame loop
-          // right after this block overwrites the aim again anyway, using
-          // actual elapsed time, before any of this ever paints.
+          // forks sticking out at odd angles). Pre-aims at a representative
+          // pose first, purely to sample that orientation; the real
+          // per-frame loop right after this block overwrites the aim
+          // again anyway, using actual elapsed time, before any of this
+          // ever paints. t=0 (blend=0 - see the 'eating' branch above)
+          // samples the fork reaching down INTO the plate, not lifted to
+          // the mouth - matches a reference screenshot of the natural
+          // angle wanted, and this is also the pose a 'listen'-role or
+          // between-bites hand rests in most of the time anyway (the
+          // lift-to-mouth portion of the cycle is the shorter part of it).
           if (isActivityFork) {
-            const mouthTarget = computeActivityTarget(scene, forward, 'eating', 2, false);
-            if (mouthTarget) aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, mouthTarget);
+            const plateTarget = computeActivityTarget(scene, forward, 'eating', 0);
+            if (plateTarget) aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, plateTarget);
           }
           const wristPos = new THREE.Vector3();
           const gripFingerPos = new THREE.Vector3();
@@ -1356,12 +1353,17 @@ export function SeatedPose({
     {
       const activityTime = clock.getElapsedTime();
       const armDelta = Math.min(frameDelta, 1 / 30);
-      // Only a STATIC 'eating' override (table2's guys) pauses for its own
-      // speaking turn - phone/gesture keep running regardless (gesture in
-      // particular reads as something you do WHILE talking, not instead of
-      // it). A conversation's rotating eat role already only ever lands on
-      // whoever ISN'T currently speaking, so it needs no separate pause.
-      const eatingPaused = !!conversation && isConversationSpeaker(conversation, activityTime);
+      // A static activity (table2/table4's eating or phone) switches to
+      // gesturing for whoever's own turn it is to speak, instead of
+      // continuing to eat/scroll straight through it - requested directly,
+      // with a reference screenshot of two women visibly gesturing while
+      // talking. Reads as more animated conversational body language than
+      // the earlier version, which just froze the eating hand at the
+      // plate and left the phone hand scrolling the whole time regardless
+      // of who was talking. A conversation's rotating eat role (3+ peers)
+      // already only ever lands on whoever ISN'T currently speaking, so it
+      // needs no separate handling here.
+      const isSpeaking = !!conversation && isConversationSpeaker(conversation, activityTime);
       const role = conversation && conversation.peers.length >= 3
         ? computeConversationRole(conversation, activityTime)
         : null;
@@ -1371,8 +1373,8 @@ export function SeatedPose({
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
           let rawTarget: THREE.Vector3 | null = null;
           if (override?.activity) {
-            const paused = override.activity === 'eating' && eatingPaused;
-            rawTarget = computeActivityTarget(scene, forward, override.activity, activityTime, paused);
+            const activity = isSpeaking ? 'gesture' : override.activity;
+            rawTarget = computeActivityTarget(scene, forward, activity, activityTime);
           } else if (side === 'R' && !override?.target && role) {
             rawTarget = computeConversationArmTarget(scene, forward, role, activityTime);
           }

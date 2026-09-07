@@ -112,8 +112,8 @@ const [TABLE2_TALK_AVERAGE, TABLE2_TALK_CASUALSUIT] = conversationGroup([
 // "third" seat for computeConversationRole's eat role to land on - it
 // falls back to a plain speak/listen split (see its own comment) the same
 // way table1/table2's pairs already do. tiered_dress's own rightArm
-// activity below still supplies the "eat" half of that, same static-
-// eating-that-pauses-for-her-own-turn pattern table2's guys use.
+// activity below still supplies the "eat" half of that, switching to a
+// gesture for her own speaking turn the same way table2's guys do.
 const [TABLE4_TALK_POLKA, TABLE4_TALK_TIERED] = conversationGroup([
   [0.5, 0, 2.7],
   [1.4, 0, 1.8],
@@ -147,8 +147,8 @@ const NPCS: NpcConfig[] = [
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },
 
   // Table 4 (0.5,1.8): polka_skirt on her phone, tiered_dress with food -
-  // now also mid-conversation (see TABLE4_TALK_* above), tiered_dress's
-  // eating pausing for her own speaking turn the same way table2's does.
+  // now also mid-conversation (see TABLE4_TALK_* above), each gesturing
+  // instead of scrolling/eating during their own speaking turn.
   { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true, rightArm: { activity: 'phone' }, conversation: TABLE4_TALK_POLKA },
   { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE4_TALK_TIERED },
 
