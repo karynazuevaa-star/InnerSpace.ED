@@ -548,14 +548,15 @@ export const SEATED_HIP_DROP_METERS = 0.365;
 const SEATED_ARM_BONES: { name: string; degrees: [number, number, number] }[] = [
   // Own baseline (not RELAXED_ARM_BONES's standing one - that swings the
   // upper arm out from the shoulder for hip clearance a seated pose with
-  // hands in the lap doesn't need, and its forearm bend is tuned to land
-  // the hand near the hip rather than the lap). Elbow bent enough to bring
-  // the forearm forward and down onto the thighs instead of hanging at the
-  // side into the (now horizontal) leg.
+  // hands in the lap doesn't need). Just the shoulder/upper-arm hang and a
+  // small wrist tweak - the elbow bend itself is aimed at runtime (see
+  // SeatedPose below), same as the legs: a guessed Euler delta here bent
+  // the forearm down alongside the chair leg rather than forward onto the
+  // thigh (reported directly - the hand read as tucked behind the hip
+  // instead of resting in front of it), the same twisted-rest-frame issue
+  // the legs already hit.
   { name: 'upperarm01L', degrees: [4, 6, -14] },
   { name: 'upperarm01R', degrees: [4, -6, 14] },
-  { name: 'lowerarm01L', degrees: [-72, 0, -1] },
-  { name: 'lowerarm01R', degrees: [-72, 0, 1] },
   { name: 'wristL', degrees: [-4, 2, 0] },
   { name: 'wristR', degrees: [-4, -2, 0] },
 ];
@@ -604,10 +605,20 @@ export function SeatedPose() {
         aimBoneAt(scene, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.upperlegR, SEATED_LEG_BONES.lowerlegR, forward);
         aimBoneAt(scene, SEATED_LEG_BONES.lowerlegL, SEATED_LEG_BONES.lowerlegL, 'footL', DOWN);
         aimBoneAt(scene, SEATED_LEG_BONES.lowerlegR, SEATED_LEG_BONES.lowerlegR, 'footR', DOWN);
+
+        // Upper arm's baseline hang first (a small Euler delta - fine here,
+        // this bone only ever needed a few degrees of adjustment, not a
+        // full re-aim like the elbow below), then aim the forearm at a
+        // forward-and-down target (onto the thigh) computed from the same
+        // per-character forward direction the legs use, so it tracks
+        // whichever way this NPC actually ended up facing.
+        SEATED_ARM_BONES.forEach(({ name, degrees: [x, y, z] }) => {
+          applyRel([scene], restMap, name, THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z));
+        });
+        const armForwardDown = forward.clone().add(DOWN.clone().multiplyScalar(0.4)).normalize();
+        aimBoneAt(scene, 'lowerarm01L', 'lowerarm01L', 'wristL', armForwardDown);
+        aimBoneAt(scene, 'lowerarm01R', 'lowerarm01R', 'wristR', armForwardDown);
       }
-      SEATED_ARM_BONES.forEach(({ name, degrees: [x, y, z] }) => {
-        applyRel(scenes, restMap, name, THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z));
-      });
       posed.current = true;
     }
 
