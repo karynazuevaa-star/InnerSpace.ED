@@ -143,6 +143,29 @@ function aimBoneAt(
   bone.updateMatrixWorld(true);
 }
 
+// Same idea as aimBoneAt, but for a specific WORLD point (a table's
+// center, a prop in the character's own hand) rather than a fixed
+// direction - used for activity poses (holding hands across a table,
+// bringing a hand up to the face) where the target only makes sense as an
+// actual place in the room, not an abstract "forward". Computes the
+// direction from the bone's current position to that point, then reuses
+// aimBoneAt's own world-to-local conversion.
+function aimBoneAtPoint(
+  scene: THREE.Object3D,
+  boneName: string,
+  fromBoneName: string,
+  endBoneName: string,
+  targetWorldPos: THREE.Vector3,
+) {
+  const fromBone = scene.getObjectByName(fromBoneName);
+  if (!fromBone) return;
+  const fromPos = new THREE.Vector3();
+  fromBone.getWorldPosition(fromPos);
+  const dir = targetWorldPos.clone().sub(fromPos);
+  if (dir.lengthSq() < 1e-8) return;
+  aimBoneAt(scene, boneName, fromBoneName, endBoneName, dir.normalize());
+}
+
 // Meshes that carry morph targets, cached per scene the first time they're
 // looked up (called every frame for blinking, unlike bodyMorphs.ts's own
 // version of this traversal which only runs when a slider changes).
@@ -561,6 +584,41 @@ const SEATED_ARM_BONES: { name: string; degrees: [number, number, number] }[] = 
   { name: 'wristR', degrees: [-4, -2, 0] },
 ];
 
+export type SeatedArmActivity = 'phone' | 'eating' | 'gesture';
+
+export interface SeatedArmOverride {
+  /** A named activity - computed at runtime relative to this character's
+   * OWN current head position, so it works regardless of where the NPC
+   * actually is (unlike `target`, which is one fixed spot in the room). */
+  activity?: SeatedArmActivity;
+  /** A fixed world-space point instead - for something that's genuinely
+   * the same place for every character reaching for it, like the middle
+   * of a shared table for a handhold pose. */
+  target?: [number, number, number];
+}
+
+// Offsets are forward/up from the character's own head position, in
+// meters - tuned by eye against the rig's own proportions, not measured
+// off anything. `forward` component brings the hand out in front of the
+// body; the (usually negative) `up` component drops it to the right
+// height for that activity - phone lower at chest height, food right at
+// mouth height, a gesture out a little further and a little higher than
+// either.
+const ARM_ACTIVITY_OFFSETS: Record<SeatedArmActivity, { forward: number; up: number }> = {
+  phone: { forward: 0.16, up: -0.32 },
+  eating: { forward: 0.14, up: -0.08 },
+  gesture: { forward: 0.34, up: -0.2 },
+};
+
+function computeActivityTarget(scene: THREE.Object3D, forward: THREE.Vector3, activity: SeatedArmActivity) {
+  const head = scene.getObjectByName('head');
+  if (!head) return null;
+  const headPos = new THREE.Vector3();
+  head.getWorldPosition(headPos);
+  const { forward: f, up } = ARM_ACTIVITY_OFFSETS[activity];
+  return headPos.add(forward.clone().multiplyScalar(f)).add(new THREE.Vector3(0, up, 0));
+}
+
 /**
  * Static seated pose (legs bent into a chair, hands resting on the thighs)
  * plus the same breathing bob IdleAnimation uses - no weight-shift/arm-
@@ -569,9 +627,17 @@ const SEATED_ARM_BONES: { name: string; degrees: [number, number, number] }[] = 
  * are already bent under a chair). Re-poses only when first mounted (the
  * bend angles are fixed), same guarded-useFrame pattern StaticRelaxedPose
  * uses for the same reason - no per-frame work needed for a pose that
- * never changes.
+ * never changes. `leftArm`/`rightArm` override that hand's default onto-
+ * the-thigh rest with either a named activity or a fixed point to reach
+ * for - see SeatedArmOverride.
  */
-export function SeatedPose() {
+export function SeatedPose({
+  leftArm,
+  rightArm,
+}: {
+  leftArm?: SeatedArmOverride;
+  rightArm?: SeatedArmOverride;
+}) {
   const { posableScenes } = useAvatarContext();
   const posed = useRef(false);
 
@@ -618,6 +684,19 @@ export function SeatedPose() {
         const armForwardDown = forward.clone().add(DOWN.clone().multiplyScalar(0.4)).normalize();
         aimBoneAt(scene, 'lowerarm01L', 'lowerarm01L', 'wristL', armForwardDown);
         aimBoneAt(scene, 'lowerarm01R', 'lowerarm01R', 'wristR', armForwardDown);
+
+        // Activity overrides replace that default thigh-rest for whichever
+        // hand(s) have one, applied last so they always win.
+        for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
+          if (!override) continue;
+          const target = override.target
+            ? new THREE.Vector3(...override.target)
+            : override.activity
+              ? computeActivityTarget(scene, forward, override.activity)
+              : null;
+          if (!target) continue;
+          aimBoneAtPoint(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+        }
       }
       posed.current = true;
     }

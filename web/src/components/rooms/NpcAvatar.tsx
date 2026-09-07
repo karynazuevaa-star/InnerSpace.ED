@@ -2,7 +2,13 @@ import { useEffect, useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { AvatarProvider, useAvatarContext } from '../../avatar/AvatarContext';
-import { primeIdleAnimationRestPose, IdleAnimation, SeatedPose, SEATED_HIP_DROP_METERS } from '../../avatar/idleAnimation';
+import {
+  primeIdleAnimationRestPose,
+  IdleAnimation,
+  SeatedPose,
+  SEATED_HIP_DROP_METERS,
+  type SeatedArmOverride,
+} from '../../avatar/idleAnimation';
 import { cloneGltfScene } from '../../avatar/cloneGltf';
 
 /**
@@ -37,6 +43,12 @@ export interface NpcConfig {
    * lengths. `position` still names the floor spot under the chair, same
    * as a standing NPC - the seat drop is applied on top of it here. */
   seated?: boolean;
+  /** Only meaningful when seated - overrides that hand's default rest-on-
+   * the-thigh pose with an activity (phone/eating/gesture) or a fixed
+   * point to reach for (a shared handhold spot on the table). See
+   * SeatedArmOverride. */
+  leftArm?: SeatedArmOverride;
+  rightArm?: SeatedArmOverride;
 }
 
 function presetUrl(preset: NpcPresetName): string {
@@ -70,7 +82,11 @@ export function NpcAvatar({ config }: { config: NpcConfig }) {
     <group position={[x, groupY, z]} rotation={[0, config.rotationY, 0]}>
       <AvatarProvider>
         <NpcPreset preset={config.preset} />
-        {config.seated ? <SeatedPose /> : <IdleAnimation weight={0} butt={0} legs={0} />}
+        {config.seated ? (
+          <SeatedPose leftArm={config.leftArm} rightArm={config.rightArm} />
+        ) : (
+          <IdleAnimation weight={0} butt={0} legs={0} />
+        )}
       </AvatarProvider>
     </group>
   );

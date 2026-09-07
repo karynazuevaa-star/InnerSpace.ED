@@ -37,27 +37,79 @@ export function CafeEnvironment() {
       <Chair position={[1.6, 0, -2.5]} rotationY={Math.PI} />
       <Chair position={[2.5, 0, -3.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[1.6, 2.6, -3.4]} />
+      <FoodPlate position={[1.6, 0.74, -3.6]} />
 
       <Table position={[3.4, 0, -0.4]} />
       <Chair position={[3.4, 0, 0.5]} rotationY={Math.PI} />
       <Chair position={[4.3, 0, -0.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[3.4, 2.6, -0.4]} />
+      <FoodPlate position={[3.35, 0.74, -0.15]} />
+      <FoodPlate position={[3.65, 0.74, -0.55]} />
 
       <Table position={[-2.6, 0, 1.4]} />
       <Chair position={[-2.6, 0, 2.3]} rotationY={Math.PI} />
       <Chair position={[-1.7, 0, 1.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[-2.6, 2.6, 1.4]} />
+      <CoffeeCup position={[-2.6, 0.74, 1.6]} />
 
       <Table position={[0.5, 0, 1.8]} />
       <Chair position={[0.5, 0, 2.7]} rotationY={Math.PI} />
       <Chair position={[1.4, 0, 1.8]} rotationY={-Math.PI / 2} />
       <PendantLight position={[0.5, 2.6, 1.8]} />
+      <FoodPlate position={[0.65, 0.74, 1.95]} />
 
       <Table position={[-3.6, 0, -2.0]} />
       <Chair position={[-3.6, 0, -1.1]} rotationY={Math.PI} />
       <Chair position={[-2.7, 0, -2.0]} rotationY={-Math.PI / 2} />
       <Chair position={[-4.5, 0, -2.0]} rotationY={Math.PI / 2} />
       <PendantLight position={[-3.6, 2.6, -2.0]} />
+      <FoodPlate position={[-3.6, 0.74, -1.85]} />
+    </group>
+  );
+}
+
+function CoffeeCup({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.005, 0]} receiveShadow>
+        <cylinderGeometry args={[0.09, 0.09, 0.01, 20]} />
+        <meshStandardMaterial color="#e8e2d8" roughness={0.4} />
+      </mesh>
+      <mesh position={[0, 0.045, 0]} castShadow>
+        <cylinderGeometry args={[0.045, 0.038, 0.07, 16]} />
+        <meshStandardMaterial color="#f5f0e8" roughness={0.3} />
+      </mesh>
+      <mesh position={[0, 0.077, 0]}>
+        <cylinderGeometry args={[0.036, 0.036, 0.004, 16]} />
+        <meshStandardMaterial color="#3a2418" roughness={0.35} />
+      </mesh>
+      <mesh position={[0.05, 0.045, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <torusGeometry args={[0.02, 0.006, 8, 12]} />
+        <meshStandardMaterial color="#f5f0e8" roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+function FoodPlate({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.008, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.13, 0.12, 0.016, 24]} />
+        <meshStandardMaterial color="#eee6d8" roughness={0.35} />
+      </mesh>
+      <mesh position={[-0.02, 0.028, 0.015]} rotation={[0, 0.4, 0]} castShadow>
+        <boxGeometry args={[0.09, 0.025, 0.075]} />
+        <meshStandardMaterial color="#d9a45a" roughness={0.65} />
+      </mesh>
+      <mesh position={[0.045, 0.022, -0.025]} castShadow>
+        <sphereGeometry args={[0.032, 10, 8]} />
+        <meshStandardMaterial color="#8a5a2a" roughness={0.75} />
+      </mesh>
+      <mesh position={[0.02, 0.02, 0.05]} castShadow>
+        <sphereGeometry args={[0.024, 10, 8]} />
+        <meshStandardMaterial color="#5a8a3a" roughness={0.7} />
+      </mesh>
     </group>
   );
 }

@@ -13,24 +13,31 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // assuming 0 meant -Z. Every "north" seat (higher z than its table) needs
 // rotationY=PI to face the table (-Z); the "east"/"west" (+-PI/2) seats
 // were already correct, since they were never flagged.
+// Table 1's shared point for the handhold pose - both npc_lace_ruffle and
+// npc_male_heavier aim a hand at this exact spot (table center, just above
+// the surface) instead of resting it on their own thigh.
+const TABLE1_HANDS: [number, number, number] = [1.6, 0.76, -3.4];
+
 const NPCS: NpcConfig[] = [
-  // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together
-  { position: [1.6, 0, -2.5], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true },
-  { position: [2.5, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true },
+  // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
+  // on the table
+  { position: [1.6, 0, -2.5], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HANDS } },
+  { position: [2.5, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HANDS } },
 
-  // Table 2 (3.4,-0.4): the other two guys together
-  { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true },
-  { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true },
+  // Table 2 (3.4,-0.4): the other two guys together, eating
+  { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' } },
+  { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true, rightArm: { activity: 'eating' } },
 
-  // Table 3 (-2.6,1.4): thinner alone
+  // Table 3 (-2.6,1.4): thinner alone, coffee on the table
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },
 
-  // Table 4 (0.5,1.8): polka_skirt + tiered_dress together
-  { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true },
+  // Table 4 (0.5,1.8): polka_skirt on her phone, tiered_dress with food
+  { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true, rightArm: { activity: 'phone' } },
   { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true },
 
-  // Table 5 (-3.6,-2.0): the remaining three together - now with a 3rd chair
-  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true },
+  // Table 5 (-3.6,-2.0): the remaining three together, mid-conversation -
+  // now with a 3rd chair
+  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, rightArm: { activity: 'gesture' } },
   { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true },
   { position: [-4.5, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true },
 ];
