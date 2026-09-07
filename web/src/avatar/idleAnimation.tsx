@@ -714,6 +714,36 @@ export interface SeatedArmOverride {
   target?: [number, number, number];
 }
 
+/**
+ * Turns a static table of seated NPCs into something that reads as mid
+ * conversation - deliberately head-only (see the turn-taking block in
+ * SeatedPose below for why): every member of a table shares this same
+ * `peers` list (their own world XZ seat positions, in a fixed order) and
+ * each just needs to know which entry is their own. A shared, purely
+ * time-based turn clock (no cross-NPC message-passing needed) then lets
+ * every member independently agree on who's "speaking" this instant -
+ * that member gets a small head bob, everyone else turns to look at them
+ * with an occasional nod. `peers` only needs XZ: a seated head sits
+ * directly above its own seat, and the look-at math here only ever turns
+ * on the horizontal (yaw) axis.
+ */
+export interface ConversationConfig {
+  peers: [number, number][];
+  selfIndex: number;
+}
+
+// One speaking turn, in seconds - long enough to read as an actual turn
+// rather than a nervous back-and-forth glance.
+const CONVERSATION_TURN_SECONDS = 6;
+// Clamped so a peer seated at an awkward angle (nearly behind) doesn't
+// spin the head to face fully backward - reads as "glancing toward" past
+// this, which is about as far as a real seated turn comfortably goes.
+const CONVERSATION_MAX_LOOK_DEGREES = 55;
+const CONVERSATION_NOD_DEGREES = 4;
+const CONVERSATION_NOD_PERIOD_SECONDS = 2.6;
+const CONVERSATION_SPEAK_BOB_DEGREES = 2.5;
+const CONVERSATION_SPEAK_BOB_PERIOD_SECONDS = 0.55;
+
 // Offsets are forward/up from the character's own head position, in
 // meters - tuned by eye against the rig's own proportions, not measured
 // off anything. `forward` component brings the hand out in front of the
@@ -790,8 +820,16 @@ function computeActivityTarget(
     } else {
       blend = 0;
     }
-    const f = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.forward, mouth.forward, blend);
-    const up = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.up, mouth.up, blend);
+    // A small wobble around the plate-rest position, faded out by (1 -
+    // blend) as the hand lifts toward the mouth - reads as pushing food
+    // around the plate between bites instead of the hand freezing dead
+    // still whenever it isn't actively rising or falling (requested
+    // directly - "as if sorting through the food with the fork").
+    const stirFade = 1 - blend;
+    const stirF = Math.sin(t / 0.85) * 0.03 * stirFade;
+    const stirUp = Math.cos(t / 1.15) * 0.02 * stirFade;
+    const f = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.forward, mouth.forward, blend) + stirF;
+    const up = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.up, mouth.up, blend) + stirUp;
     return headPos.add(forward.clone().multiplyScalar(f)).add(UP.clone().multiplyScalar(up));
   }
   if (activity === 'phone') {
@@ -803,6 +841,46 @@ function computeActivityTarget(
   const { forward: f, up } = ARM_ACTIVITY_OFFSETS.gesture;
   const sway = Math.sin((t / GESTURE_SWAY_PERIOD_SECONDS) * Math.PI * 2) * GESTURE_SWAY_METERS;
   return headPos.add(forward.clone().multiplyScalar(f + sway)).add(UP.clone().multiplyScalar(up));
+}
+
+// Turns `conversation` (see its own comment above) into this frame's head
+// pose - a pure function of elapsed time, so every member of a table
+// computes the same "who's speaking" answer independently without any
+// shared mutable state. Applied as a rest-relative Euler delta on the
+// 'head' bone alone (via applyRel, by the caller) - nothing else in this
+// file ever rotates 'head', so it can't fight another system for it, and
+// a full aimBoneAt-style world-space solve would be overkill for a small
+// few-degree turn.
+function computeHeadTurn(forward: THREE.Vector3, conversation: ConversationConfig, t: number): [number, number, number] {
+  const { peers, selfIndex } = conversation;
+  const speakerIndex = Math.floor(t / CONVERSATION_TURN_SECONDS) % peers.length;
+
+  if (speakerIndex === selfIndex) {
+    // Speaking: no real mouth movement to drive (see the comment on the
+    // room's own conversation system for why - this rig bakes no
+    // mouth/jaw morph target), so a small head bob is what stands in for
+    // "actively talking" rather than sitting dead still.
+    const bob = Math.sin((t / CONVERSATION_SPEAK_BOB_PERIOD_SECONDS) * Math.PI * 2) *
+      THREE.MathUtils.degToRad(CONVERSATION_SPEAK_BOB_DEGREES);
+    return [bob, 0, 0];
+  }
+
+  const [selfX, selfZ] = peers[selfIndex];
+  const [speakerX, speakerZ] = peers[speakerIndex];
+  const dx = speakerX - selfX;
+  const dz = speakerZ - selfZ;
+  if (dx * dx + dz * dz < 1e-6) return [0, 0, 0];
+  const dir = new THREE.Vector3(dx, 0, dz).normalize();
+  // Signed angle from `forward` to `dir` about the world Y axis - a plain
+  // 2D atan2 in the horizontal plane, not a full aimBoneAt solve, since
+  // this only ever needs a yaw (never leans the head toward a peer).
+  const cross = forward.x * dir.z - forward.z * dir.x;
+  const dot = forward.x * dir.x + forward.z * dir.z;
+  const maxYaw = THREE.MathUtils.degToRad(CONVERSATION_MAX_LOOK_DEGREES);
+  const yaw = THREE.MathUtils.clamp(Math.atan2(cross, dot), -maxYaw, maxYaw);
+  const nod = Math.sin((t / CONVERSATION_NOD_PERIOD_SECONDS) * Math.PI * 2) *
+    THREE.MathUtils.degToRad(CONVERSATION_NOD_DEGREES);
+  return [nod, yaw, 0];
 }
 
 // A held fork for the eating activity - plain low-poly primitives, same
@@ -841,14 +919,18 @@ function buildForkProp(): THREE.Group {
  * uses for the same reason - no per-frame work needed for a pose that
  * never changes. `leftArm`/`rightArm` override that hand's default onto-
  * the-thigh rest with either a named activity or a fixed point to reach
- * for - see SeatedArmOverride.
+ * for - see SeatedArmOverride. `conversation` (optional - solo NPCs like
+ * table 3's don't get one) turns the head-only speak/listen system on -
+ * see ConversationConfig and computeHeadTurn.
  */
 export function SeatedPose({
   leftArm,
   rightArm,
+  conversation,
 }: {
   leftArm?: SeatedArmOverride;
   rightArm?: SeatedArmOverride;
+  conversation?: ConversationConfig;
 }) {
   const { posableScenes } = useAvatarContext();
   const posed = useRef(false);
@@ -1020,6 +1102,17 @@ export function SeatedPose({
         const target = computeActivityTarget(scene, forward, override.activity, clock.getElapsedTime());
         if (!target) continue;
         aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+      }
+    }
+
+    // Head-only speak/listen turn-taking - see ConversationConfig's own
+    // comment for why this doesn't touch the arms.
+    if (conversation) {
+      for (const scene of scenes) {
+        const forward = seatedForwardCache.get(scene);
+        if (!forward) continue;
+        const [pitch, yaw, roll] = computeHeadTurn(forward, conversation, clock.getElapsedTime());
+        applyRel([scene], restMap, 'head', pitch, yaw, roll);
       }
     }
 

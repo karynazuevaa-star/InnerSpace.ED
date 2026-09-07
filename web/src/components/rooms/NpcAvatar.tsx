@@ -8,6 +8,7 @@ import {
   SeatedPose,
   SEATED_HIP_DROP_METERS,
   type SeatedArmOverride,
+  type ConversationConfig,
 } from '../../avatar/idleAnimation';
 import { cloneGltfScene } from '../../avatar/cloneGltf';
 
@@ -49,6 +50,10 @@ export interface NpcConfig {
    * SeatedArmOverride. */
   leftArm?: SeatedArmOverride;
   rightArm?: SeatedArmOverride;
+  /** Only meaningful when seated - shares this NPC into a table-wide
+   * speak/listen turn-taking system (see ConversationConfig). Omitted for
+   * solo NPCs, who have no one to look at. */
+  conversation?: ConversationConfig;
 }
 
 function presetUrl(preset: NpcPresetName): string {
@@ -83,7 +88,7 @@ export function NpcAvatar({ config }: { config: NpcConfig }) {
       <AvatarProvider>
         <NpcPreset preset={config.preset} />
         {config.seated ? (
-          <SeatedPose leftArm={config.leftArm} rightArm={config.rightArm} />
+          <SeatedPose leftArm={config.leftArm} rightArm={config.rightArm} conversation={config.conversation} />
         ) : (
           <IdleAnimation weight={0} butt={0} legs={0} />
         )}

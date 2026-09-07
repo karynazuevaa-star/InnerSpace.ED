@@ -5,6 +5,17 @@ import { NpcAvatar, type NpcConfig } from './NpcAvatar';
 import { PlayerControls, type RoomBounds } from './PlayerControls';
 import { SceneLoader } from '../SceneLoader';
 import { useLanguage } from '../../i18n/LanguageContext';
+import type { ConversationConfig } from '../../avatar/idleAnimation';
+
+// Builds one `ConversationConfig` per seat, sharing the same `peers` list
+// (every seat's own XZ position, table height doesn't matter - see
+// ConversationConfig's own comment) in a fixed order, so the whole table
+// agrees on the turn-taking clock without any of them needing to know
+// about each other at render time. `positions` order IS turn order.
+function conversationGroup(positions: [number, number, number][]): ConversationConfig[] {
+  const peers: [number, number][] = positions.map(([x, , z]) => [x, z]);
+  return positions.map((_, selfIndex) => ({ peers, selfIndex }));
+}
 
 // The Chair prop's own backrest sits on its -Z side (see CafeEnvironment.tsx),
 // so a chair at rotationY=0 has its seat facing +Z, not -Z - confirmed
@@ -43,17 +54,35 @@ import { useLanguage } from '../../i18n/LanguageContext';
 const TABLE1_HAND_LOWER: [number, number, number] = [1.945, 0.785, -3.125];
 const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.02];
 
+// Turn-taking groups (see ConversationConfig) - one call per table that
+// should read as mid-conversation. Table 3 (solo) and table 4 (one NPC
+// absorbed in her phone) are left out on purpose: nobody to talk to, and
+// scrolling-while-glancing-at-a-stranger would read as odd, respectively.
+const [TABLE1_TALK_LACE, TABLE1_TALK_HEAVIER] = conversationGroup([
+  [1.6, 0, -2.78],
+  [2.22, 0, -3.4],
+]);
+const [TABLE2_TALK_AVERAGE, TABLE2_TALK_CASUALSUIT] = conversationGroup([
+  [3.4, 0, 0.5],
+  [4.3, 0, -0.4],
+]);
+const [TABLE5_TALK_ASIAN, TABLE5_TALK_NATIVE, TABLE5_TALK_KNIT] = conversationGroup([
+  [-3.6, 0, -1.1],
+  [-2.7, 0, -2.0],
+  [-4.5, 0, -2.0],
+]);
+
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
   // on the table - seats pulled in close (see CafeEnvironment.tsx) so
   // their hands can actually reach each other. lace_ruffle's hand rests on
   // top, male_heavier's underneath.
-  { position: [1.6, 0, -2.78], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER } },
-  { position: [2.22, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER } },
+  { position: [1.6, 0, -2.78], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER }, conversation: TABLE1_TALK_LACE },
+  { position: [2.22, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER }, conversation: TABLE1_TALK_HEAVIER },
 
   // Table 2 (3.4,-0.4): the other two guys together, eating
-  { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' } },
-  { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true, rightArm: { activity: 'eating' } },
+  { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_AVERAGE },
+  { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_CASUALSUIT },
 
   // Table 3 (-2.6,1.4): thinner alone, coffee on the table
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },
@@ -64,9 +93,9 @@ const NPCS: NpcConfig[] = [
 
   // Table 5 (-3.6,-2.0): the remaining three together, mid-conversation -
   // now with a 3rd chair
-  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, rightArm: { activity: 'gesture' } },
-  { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true },
-  { position: [-4.5, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true },
+  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, rightArm: { activity: 'gesture' }, conversation: TABLE5_TALK_ASIAN },
+  { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true, conversation: TABLE5_TALK_NATIVE },
+  { position: [-4.5, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true, conversation: TABLE5_TALK_KNIT },
 ];
 
 const BOUNDS: RoomBounds = { minX: -4.5, maxX: 4.5, minZ: -5, maxZ: 3.2 };
