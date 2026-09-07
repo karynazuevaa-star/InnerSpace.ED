@@ -757,6 +757,11 @@ export interface SeatedArmOverride {
    * the same place for every character reaching for it, like the middle
    * of a shared table for a handhold pose. */
   target?: [number, number, number];
+  /** Hold a fork in this hand too (see the fork-attachment block in
+   * SeatedPose) even though it isn't the 'eating' activity - for a
+   * `target` hand (a fixed table-resting point) that should still read as
+   * holding something, like the couple at table1's non-handhold hand. */
+  holdsFork?: boolean;
 }
 
 /**
@@ -1237,7 +1242,8 @@ export function SeatedPose({
           // of a conversation.
           const dynamicRoleEats =
             side === 'R' && !override?.activity && !override?.target && !!conversation && conversation.peers.length >= 3;
-          if (override?.activity !== 'eating' && !dynamicRoleEats) continue;
+          const isActivityFork = override?.activity === 'eating' || dynamicRoleEats;
+          if (!isActivityFork && !override?.holdsFork) continue;
           const wrist = scene.getObjectByName(`wrist${side}`);
           const gripFinger = scene.getObjectByName(`finger3-1${side}`);
           if (!wrist || !gripFinger) continue;
@@ -1283,6 +1289,26 @@ export function SeatedPose({
           // the hand"). A finger's own base joint doesn't move when that
           // finger curls (only its rotation does), so this stays a stable,
           // curl-independent read of which way the hand itself is facing.
+          //
+          // For an activity-based fork (not `holdsFork`, which reuses a
+          // `target` the earlier block already aimed the wrist at for
+          // good), the wrist right now is still sitting in the generic
+          // thigh-rest pose from earlier in this same one-time block - the
+          // per-frame activity loop that actually aims it at the eating/
+          // gesture/listen target hasn't run yet this frame. Baking the
+          // fork's rigid offset against that unrelated rest orientation
+          // left it reading as twisted/sideways once the wrist rotated to
+          // its real pose afterward (reported directly, with screenshots -
+          // forks sticking out at odd angles). Pre-aiming at a
+          // representative "food at the mouth" point first (t=2, mid chew
+          // phase - see EATING_LIFT/CHEW_SECONDS) samples the orientation
+          // it'll actually be held at instead; the real per-frame loop
+          // right after this block overwrites the aim again anyway, using
+          // actual elapsed time, before any of this ever paints.
+          if (isActivityFork) {
+            const mouthTarget = computeActivityTarget(scene, forward, 'eating', 2, false);
+            if (mouthTarget) aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, mouthTarget);
+          }
           const wristPos = new THREE.Vector3();
           const gripFingerPos = new THREE.Vector3();
           wrist.getWorldPosition(wristPos);

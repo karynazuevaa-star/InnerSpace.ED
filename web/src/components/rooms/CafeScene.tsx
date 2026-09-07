@@ -54,16 +54,25 @@ function conversationGroup(positions: [number, number, number][]): ConversationC
 const TABLE1_HAND_LOWER: [number, number, number] = [1.945, 0.785, -3.125];
 const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.02];
 
+// Table1's OTHER (non-handhold) hand for each of them - requested
+// directly: rest it on the table too, holding a fork (`holdsFork`, see
+// idleAnimation.tsx), rather than defaulting onto the thigh like an arm
+// with no override at all. Placed clear of both the handhold points above
+// and the decorative FoodPlate near the table's unused south side -
+// lace_ruffle's toward her own (north) side away from the handhold pair,
+// male_heavier's toward his own (east) side likewise. Y=0.785 matches
+// TABLE1_HAND_LOWER - the same "one hand resting flat at table height"
+// case, not stacked on another hand.
+const TABLE1_LACE_FORK_HAND: [number, number, number] = [1.4, 0.785, -3.15];
+const TABLE1_HEAVIER_FORK_HAND: [number, number, number] = [1.85, 0.785, -3.55];
+
 // Table 2's non-eating (left) hand - reported directly that it should
 // rest on the table, gently bent at the elbow, rather than default onto
 // the thigh like an arm with no override at all. Reuses the same `target`
 // mechanism as table1's handhold (a fixed point, aimed at once - see the
 // `posed.current` block in idleAnimation.tsx), which already applies a
 // palm-down orientation and the same gently-curled resting fingers table1
-// uses, for free. Each point sits ~0.15m off-center toward its own seat
-// and just inside the table edge (0.38m from table center, radius 0.42) -
-// near enough to read as their own side of the table, not stretched to
-// the middle where it'd overlap the other hand or the shared food plates.
+// uses, for free.
 // Y=0.75 (1cm above the table's top face at 0.74) wasn't enough clearance
 // - aimPalmNormal turns the palm to face straight down, so the actual
 // palm/finger mesh sits BELOW the wrist point this target aims, and at
@@ -72,13 +81,24 @@ const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.02];
 // correct height instead of a fresh guess - that's the same "one hand
 // resting flat at table height" case (the other table1 point, _UPPER, is
 // higher because it stacks a second hand on top of that one).
-const TABLE2_AVERAGE_LEFT_HAND: [number, number, number] = [3.25, 0.785, -0.05];
-const TABLE2_CASUALSUIT_LEFT_HAND: [number, number, number] = [3.55, 0.785, -0.75];
+// The original 0.15m-off-center points then read as the hand overlapping
+// its own plate (reported directly, with a screenshot) - table2's default
+// 0.42 table radius genuinely doesn't have room for both a plate and a
+// resting hand on the same side without crowding, at least not while both
+// stay a comfortable distance from the shared center. See
+// CafeEnvironment.tsx for the matching radius bump this table got (0.46,
+// same idea as table5's bigger bump) - these points, and the FoodPlate
+// positions there, were recomputed together for the extra room: hand
+// pushed out further to each side (0.22m lateral, up from 0.15m) and the
+// plates pulled a bit closer to center (0.15m offset, down from 0.2m),
+// leaving ~17cm of clearance between a hand and its own plate instead of
+// the original ~8cm.
+const TABLE2_AVERAGE_LEFT_HAND: [number, number, number] = [3.18, 0.785, -0.05];
+const TABLE2_CASUALSUIT_LEFT_HAND: [number, number, number] = [3.62, 0.785, -0.75];
 
 // Turn-taking groups (see ConversationConfig) - one call per table that
-// should read as mid-conversation. Table 3 (solo) and table 4 (one NPC
-// absorbed in her phone) are left out on purpose: nobody to talk to, and
-// scrolling-while-glancing-at-a-stranger would read as odd, respectively.
+// should read as mid-conversation. Table 3 (solo) is left out on purpose:
+// nobody to talk to.
 const [TABLE1_TALK_LACE, TABLE1_TALK_HEAVIER] = conversationGroup([
   [1.6, 0, -2.78],
   [2.22, 0, -3.4],
@@ -87,10 +107,21 @@ const [TABLE2_TALK_AVERAGE, TABLE2_TALK_CASUALSUIT] = conversationGroup([
   [3.4, 0, 0.22],
   [3.4, 0, -1.02],
 ]);
+// Table 4 - requested directly: give these two the same speak/listen/eat
+// animation the table5 trio has. Only two of them, so there's no separate
+// "third" seat for computeConversationRole's eat role to land on - it
+// falls back to a plain speak/listen split (see its own comment) the same
+// way table1/table2's pairs already do. tiered_dress's own rightArm
+// activity below still supplies the "eat" half of that, same static-
+// eating-that-pauses-for-her-own-turn pattern table2's guys use.
+const [TABLE4_TALK_POLKA, TABLE4_TALK_TIERED] = conversationGroup([
+  [0.5, 0, 2.7],
+  [1.4, 0, 1.8],
+]);
 const [TABLE5_TALK_ASIAN, TABLE5_TALK_NATIVE, TABLE5_TALK_KNIT] = conversationGroup([
-  [-3.6, 0, -1.1],
-  [-2.7, 0, -2.0],
-  [-4.5, 0, -2.0],
+  [-3.6, 0, -1.24],
+  [-2.84, 0, -2.0],
+  [-4.36, 0, -2.0],
 ]);
 
 const NPCS: NpcConfig[] = [
@@ -98,8 +129,8 @@ const NPCS: NpcConfig[] = [
   // on the table - seats pulled in close (see CafeEnvironment.tsx) so
   // their hands can actually reach each other. lace_ruffle's hand rests on
   // top, male_heavier's underneath.
-  { position: [1.6, 0, -2.78], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER }, conversation: TABLE1_TALK_LACE },
-  { position: [2.22, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER }, conversation: TABLE1_TALK_HEAVIER },
+  { position: [1.6, 0, -2.78], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, leftArm: { target: TABLE1_LACE_FORK_HAND, holdsFork: true }, rightArm: { target: TABLE1_HAND_UPPER }, conversation: TABLE1_TALK_LACE },
+  { position: [2.22, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER }, rightArm: { target: TABLE1_HEAVIER_FORK_HAND, holdsFork: true }, conversation: TABLE1_TALK_HEAVIER },
 
   // Table 2 (3.4,-0.4): the other two guys together, eating - seats pulled
   // in to 0.62m from the table center (see CafeEnvironment.tsx), matching
@@ -115,9 +146,11 @@ const NPCS: NpcConfig[] = [
   // Table 3 (-2.6,1.4): thinner alone, coffee on the table
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },
 
-  // Table 4 (0.5,1.8): polka_skirt on her phone, tiered_dress with food
-  { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true, rightArm: { activity: 'phone' } },
-  { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true },
+  // Table 4 (0.5,1.8): polka_skirt on her phone, tiered_dress with food -
+  // now also mid-conversation (see TABLE4_TALK_* above), tiered_dress's
+  // eating pausing for her own speaking turn the same way table2's does.
+  { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true, rightArm: { activity: 'phone' }, conversation: TABLE4_TALK_POLKA },
+  { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE4_TALK_TIERED },
 
   // Table 5 (-3.6,-2.0): the remaining three together, mid-conversation -
   // speak/listen/eat rotates between all three (see computeConversationRole
@@ -125,9 +158,9 @@ const NPCS: NpcConfig[] = [
   // activity, so none of the three gets a rightArm override here - the
   // rotation drives the right hand for all of them automatically once
   // `conversation` has 3+ peers.
-  { position: [-3.6, 0, -1.1], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, conversation: TABLE5_TALK_ASIAN },
-  { position: [-2.7, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true, conversation: TABLE5_TALK_NATIVE },
-  { position: [-4.5, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true, conversation: TABLE5_TALK_KNIT },
+  { position: [-3.6, 0, -1.24], rotationY: Math.PI, preset: 'npc_asian_dress', seated: true, conversation: TABLE5_TALK_ASIAN },
+  { position: [-2.84, 0, -2.0], rotationY: -Math.PI / 2, preset: 'npc_native_skirt', seated: true, conversation: TABLE5_TALK_NATIVE },
+  { position: [-4.36, 0, -2.0], rotationY: Math.PI / 2, preset: 'npc_knit_sweater', seated: true, conversation: TABLE5_TALK_KNIT },
 ];
 
 const BOUNDS: RoomBounds = { minX: -4.5, maxX: 4.5, minZ: -5, maxZ: 3.2 };

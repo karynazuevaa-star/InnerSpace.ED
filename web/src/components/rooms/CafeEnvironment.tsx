@@ -54,13 +54,22 @@ export function CafeEnvironment() {
           same 0.62m from center either way, but now 1.24m from the other
           chair instead of 0.88m, close to what the original, too-far-out
           arrangement had (1.27m) without giving back the table-distance
-          fix. */}
-      <Table position={[3.4, 0, -0.4]} />
+          fix.
+          Fitting a plate AND a resting hand on the same side of the
+          default 0.42-radius table then read as the hand overlapping its
+          own plate (reported directly, with a screenshot) - not enough
+          room at that size for both without crowding. Widened to 0.46
+          (same idea as table5's own radius bump) and moved the plates in
+          to 0.15m off-center (from 0.2m) to free up more of the outer
+          ring for TABLE2_*_LEFT_HAND, which moved out to 0.22m lateral
+          (from 0.15m) in CafeScene.tsx - together these leave ~17cm
+          between a hand and its own plate instead of the original ~8cm. */}
+      <Table position={[3.4, 0, -0.4]} radius={0.46} />
       <Chair position={[3.4, 0, 0.22]} rotationY={Math.PI} />
       <Chair position={[3.4, 0, -1.02]} rotationY={0} />
       <PendantLight position={[3.4, 2.6, -0.4]} />
-      <FoodPlate position={[3.4, 0.74, -0.2]} />
-      <FoodPlate position={[3.4, 0.74, -0.6]} />
+      <FoodPlate position={[3.4, 0.74, -0.25]} />
+      <FoodPlate position={[3.4, 0.74, -0.55]} />
 
       <Table position={[-2.6, 0, 1.4]} />
       <Chair position={[-2.6, 0, 2.3]} rotationY={Math.PI} />
@@ -74,10 +83,19 @@ export function CafeEnvironment() {
       <PendantLight position={[0.5, 2.6, 1.8]} />
       <FoodPlate position={[0.65, 0.74, 1.95]} />
 
-      <Table position={[-3.6, 0, -2.0]} />
-      <Chair position={[-3.6, 0, -1.1]} rotationY={Math.PI} />
-      <Chair position={[-2.7, 0, -2.0]} rotationY={-Math.PI / 2} />
-      <Chair position={[-4.5, 0, -2.0]} rotationY={Math.PI / 2} />
+      {/* Three chairs at 0.9m from a table sized for two (0.42 radius,
+          same as every other table here) put the legs of all three -
+          converging on that same small center - in each other's way
+          (reported directly, with a screenshot). Both widened: the table
+          itself to 0.55 (up from 0.42) and the seats pulled in to 0.76m
+          (down from 0.9) - front edge of a chair now sits almost flush
+          with the bigger table's edge, same margin table1/table2 already
+          use successfully, rather than the exposed gap the old 0.9m/0.42
+          pairing left. */}
+      <Table position={[-3.6, 0, -2.0]} radius={0.55} />
+      <Chair position={[-3.6, 0, -1.24]} rotationY={Math.PI} />
+      <Chair position={[-2.84, 0, -2.0]} rotationY={-Math.PI / 2} />
+      <Chair position={[-4.36, 0, -2.0]} rotationY={Math.PI / 2} />
       <PendantLight position={[-3.6, 2.6, -2.0]} />
       {/* One plate per seat, same idea as table2 - all three chairs now
           rotate through an eating turn (see computeConversationRole in
@@ -159,11 +177,15 @@ function Counter({ position }: { position: [number, number, number] }) {
   );
 }
 
-function Table({ position }: { position: [number, number, number] }) {
+// `radius` defaults to the original 0.42 everywhere except table5, which
+// needed more surface for 3 seats' worth of legroom (see its own comment
+// below) - scales the base/foot proportionally so a bigger top doesn't
+// end up balanced on a foot sized for the smaller default.
+function Table({ position, radius = 0.42 }: { position: [number, number, number]; radius?: number }) {
   return (
     <group position={position}>
       <mesh position={[0, 0.72, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.42, 0.42, 0.04, 32]} />
+        <cylinderGeometry args={[radius, radius, 0.04, 32]} />
         <meshStandardMaterial color="#6b4a30" roughness={0.4} />
       </mesh>
       <mesh position={[0, 0.36, 0]} castShadow>
@@ -171,7 +193,7 @@ function Table({ position }: { position: [number, number, number] }) {
         <meshStandardMaterial color="#241f1c" roughness={0.5} metalness={0.4} />
       </mesh>
       <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.24, 0.24, 0.04, 24]} />
+        <cylinderGeometry args={[radius * (0.24 / 0.42), radius * (0.24 / 0.42), 0.04, 24]} />
         <meshStandardMaterial color="#241f1c" roughness={0.5} metalness={0.4} />
       </mesh>
     </group>
