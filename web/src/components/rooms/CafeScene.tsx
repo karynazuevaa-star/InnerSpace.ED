@@ -19,22 +19,22 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // between them but left the two hand meshes occupying the same space -
 // clipping through each other and, since the point sat right at table
 // height, into the tabletop too (reported directly, with a screenshot).
-// Split into two points, but ONLY offset vertically, at the same xz this
-// midpoint already reached fine - nudging the upper point sideways too
-// (tried first) added enough extra horizontal reach that the exact-reach
-// clamp couldn't fully close it again, and the forearm read as visibly
-// warped reaching for it (reported directly, with a screenshot). A 2.5cm
-// vertical stack still let the two hands clip into each other (reported
-// directly, with a screenshot) - these poses are aimed only ONCE (see the
-// `posed.current` guard below), so a hand's exact world position also
-// drifts slightly afterward as that character's own breathing bob moves
-// their torso/shoulder out from under an already-computed, now-fixed arm
-// rotation. 3cm gives enough clearance to stay clear of both the other
-// hand and that drift without asking either arm to reach noticeably
-// further than the single shared point already did (4cm, tried first,
-// left a visible gap instead of a stack - the hands need to still touch).
+// Split into two points, a few cm apart vertically so the hands stack
+// instead of merging into each other (reported directly, with a
+// screenshot, at 2.5cm - widened to 3cm). Also nudged closer to
+// lace_ruffle's OWN seat specifically for her point: logging each hand's
+// actual unclamped reach shortfall (see aimBoneAtPointExact) showed hers
+// falling ~5.5cm short of the shared center point even though it's the
+// same distance away as male_heavier's, whose own shortfall was only
+// ~1.2cm - her arm's natural reach is shorter than his, so the shared
+// center point was always going to leave her hand short of it once the
+// 3.5cm reach-correction clamp couldn't fully cover the gap (reported
+// directly, with a screenshot of her hand floating short of the table/his
+// hand instead of resting on it). Pulling just her target ~5cm back
+// toward her own seat brings it inside her actual reach without changing
+// his.
 const TABLE1_HAND_LOWER: [number, number, number] = [1.875, 0.785, -3.125];
-const TABLE1_HAND_UPPER: [number, number, number] = [1.875, 0.815, -3.125];
+const TABLE1_HAND_UPPER: [number, number, number] = [1.84, 0.815, -3.09];
 
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
