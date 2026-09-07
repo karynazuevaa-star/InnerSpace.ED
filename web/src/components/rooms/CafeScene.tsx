@@ -19,13 +19,16 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // between them but left the two hand meshes occupying the same space -
 // clipping through each other and, since the point sat right at table
 // height, into the tabletop too (reported directly, with a screenshot).
-// Two points instead, a few centimeters apart vertically (and nudged
-// slightly toward each other horizontally so the top hand's fingers
-// actually drape over the back of the bottom one) - one for the hand
-// resting on the table, one for the hand resting on TOP of that hand, the
-// way the reference photo showed them.
-const TABLE1_HAND_LOWER: [number, number, number] = [1.86, 0.79, -3.13];
-const TABLE1_HAND_UPPER: [number, number, number] = [1.9, 0.825, -3.1];
+// Split into two points, but ONLY offset vertically, at the same xz this
+// midpoint already reached fine - nudging the upper point sideways too
+// (tried first) added enough extra horizontal reach that the exact-reach
+// clamp couldn't fully close it again, and the forearm read as visibly
+// warped reaching for it (reported directly, with a screenshot). A small
+// 2.5cm vertical stack is enough to read as "one hand resting on top of
+// the other" without asking either arm to reach any further than the
+// single shared point already did.
+const TABLE1_HAND_LOWER: [number, number, number] = [1.875, 0.79, -3.125];
+const TABLE1_HAND_UPPER: [number, number, number] = [1.875, 0.815, -3.125];
 
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
