@@ -187,11 +187,20 @@ const reachRestPosition = new WeakMap<THREE.Object3D, THREE.Vector3>();
 // between the reaching hands even after moving the shared target closer).
 // This does the same direction-aim, then patches the END bone's own local
 // position (in its parent's space) so its world position lands EXACTLY on
-// target - a simple one-joint "stretchy" nudge, not a real IK solve. Only
-// used for the handhold override, not the phone/eating/gesture activity
-// targets - those already read fine as direction-only (confirmed
-// visually) and stretching the forearm every frame through a full
-// food-to-mouth cycle risked a visibly elongating/shrinking arm.
+// target - a simple one-joint "stretchy" nudge, not a real IK solve.
+//
+// The correction is clamped to MAX_REACH_CORRECTION_METERS: moving a
+// SKINNED bone's own local position doesn't just move the bone, it
+// stretches the skin between it and its parent (the same mechanism a
+// stretchy-IK rig relies on deliberately) - fine for a couple of
+// centimeters of precision nudge, but a target genuinely out of reach
+// (seats too far apart, an offset larger than the arm) turned the whole
+// forearm into a visibly warped, elongated blob (reported directly, with
+// a screenshot). Clamping means an out-of-reach target is approached but
+// not forced - the real fix for those cases is moving the target/seating
+// closer, not stretching harder.
+const MAX_REACH_CORRECTION_METERS = 0.035;
+
 function aimBoneAtPointExact(
   scene: THREE.Object3D,
   boneName: string,
@@ -213,6 +222,9 @@ function aimBoneAtPointExact(
   const naturalPos = new THREE.Vector3();
   endBone.getWorldPosition(naturalPos);
   const worldError = targetWorldPos.clone().sub(naturalPos);
+  if (worldError.length() > MAX_REACH_CORRECTION_METERS) {
+    worldError.setLength(MAX_REACH_CORRECTION_METERS);
+  }
 
   const parentWorldQuat = new THREE.Quaternion();
   endBone.parent.getWorldQuaternion(parentWorldQuat);
@@ -662,15 +674,34 @@ export interface SeatedArmOverride {
 const ARM_ACTIVITY_OFFSETS: Record<SeatedArmActivity, { forward: number; up: number }> = {
   phone: { forward: 0.24, up: -0.12 },
   eating: { forward: 0.14, up: -0.08 },
-  gesture: { forward: 0.34, up: -0.2 },
+  // Was 0.34 forward - reached further than this rig's arm actually
+  // spans, so even the clamped exact-reach correction couldn't close the
+  // gap and the forearm read as visibly stretched/warped toward the
+  // target (reported directly, with a screenshot of the mesh distorting
+  // across the table). Pulled in to within natural reach.
+  gesture: { forward: 0.22, up: -0.16 },
 };
 
 // The "low" end of the eating cycle - roughly table height, further out
 // in front - alternates with ARM_ACTIVITY_OFFSETS.eating (the "at the
-// mouth" end) once every EATING_PERIOD_SECONDS, so the hand actually
-// travels food-to-mouth-and-back instead of freezing at the mouth.
+// mouth" end), so the hand actually travels food-to-mouth-and-back
+// instead of freezing at the mouth.
 const EATING_PLATE_OFFSET = { forward: 0.34, up: -0.56 };
-const EATING_PERIOD_SECONDS = 2.6;
+
+// A slow, unevenly-paced bite cycle instead of a fast symmetric back-and-
+// forth - reported directly that the hand moved too quickly and looked
+// mechanical. Modeled as four named phases (lift to mouth, pause there
+// while "chewing", lower to the plate, pause there before the next bite)
+// rather than one continuous oscillation, so the motion visibly alternates
+// between two held poses with real pauses instead of endlessly sweeping
+// between them - the "something to swap to" a single faster cycle was
+// missing.
+const EATING_LIFT_SECONDS = 1.3;
+const EATING_CHEW_SECONDS = 1.6;
+const EATING_LOWER_SECONDS = 1.3;
+const EATING_REST_SECONDS = 4.3;
+const EATING_PERIOD_SECONDS =
+  EATING_LIFT_SECONDS + EATING_CHEW_SECONDS + EATING_LOWER_SECONDS + EATING_REST_SECONDS;
 
 // Small continuous motion for the other two activities - reported
 // directly that a single frozen pose read as static/lifeless. Neither
@@ -680,7 +711,7 @@ const EATING_PERIOD_SECONDS = 2.6;
 // talking).
 const PHONE_BOB_METERS = 0.018;
 const PHONE_BOB_PERIOD_SECONDS = 2.3;
-const GESTURE_SWAY_METERS = 0.05;
+const GESTURE_SWAY_METERS = 0.04;
 const GESTURE_SWAY_PERIOD_SECONDS = 1.9;
 
 function computeActivityTarget(
@@ -697,7 +728,18 @@ function computeActivityTarget(
 
   if (activity === 'eating') {
     const mouth = ARM_ACTIVITY_OFFSETS.eating;
-    const blend = 0.5 - 0.5 * Math.cos((t / EATING_PERIOD_SECONDS) * Math.PI * 2);
+    const phase = t % EATING_PERIOD_SECONDS;
+    let blend: number;
+    if (phase < EATING_LIFT_SECONDS) {
+      blend = THREE.MathUtils.smoothstep(phase / EATING_LIFT_SECONDS, 0, 1);
+    } else if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS) {
+      blend = 1;
+    } else if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS + EATING_LOWER_SECONDS) {
+      const lowerPhase = (phase - EATING_LIFT_SECONDS - EATING_CHEW_SECONDS) / EATING_LOWER_SECONDS;
+      blend = 1 - THREE.MathUtils.smoothstep(lowerPhase, 0, 1);
+    } else {
+      blend = 0;
+    }
     const f = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.forward, mouth.forward, blend);
     const up = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.up, mouth.up, blend);
     return headPos.add(forward.clone().multiplyScalar(f)).add(UP.clone().multiplyScalar(up));
@@ -828,6 +870,25 @@ export function SeatedPose({
           const wrist = scene.getObjectByName(`wrist${side}`);
           if (!elbow || !wrist) continue;
 
+          // Curl the gripping fingers (not the thumb, which wraps less)
+          // into a closed-around-a-handle shape - a static pose, applied
+          // once here rather than per frame, since the grip itself doesn't
+          // change as the arm moves. Without this the fingers stayed in
+          // their flat seated-rest shape while a fork sat between them,
+          // reading as balanced-on-the-hand rather than held (reported
+          // directly).
+          const GRIP_CURL_DEGREES: Record<number, number> = { 1: 52, 2: 42, 3: 32 };
+          for (const finger of [2, 3, 4, 5]) {
+            for (const segment of [1, 2, 3]) {
+              applyRel(
+                [scene], restMap, `finger${finger}-${segment}${side}`,
+                THREE.MathUtils.degToRad(GRIP_CURL_DEGREES[segment]), 0, 0,
+              );
+            }
+          }
+          applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(24), 0, 0);
+          applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(20), 0, 0);
+
           // Placed via world-space directions, not a guessed local Euler/
           // position on the wrist bone itself - this rig's bones (see
           // aimBoneAt's own comment above) carry unpredictable twists in
@@ -853,7 +914,13 @@ export function SeatedPose({
 
           const fork = buildForkProp();
           fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
-          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.05)).add(yAxis.clone().multiplyScalar(0.02));
+          // Further out along zAxis than before (0.05 -> 0.095): that
+          // offset was measured from the wrist JOINT, landing the handle
+          // right at the wrist crease rather than out in the palm/fingers
+          // where the curled grip above actually closes around it
+          // (reported directly - "the fork is at the wrist, not in the
+          // palm"). ~0.095m approximates this rig's own palm length.
+          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.095)).add(yAxis.clone().multiplyScalar(0.012));
           fork.position.copy(wrist.worldToLocal(desiredWorldPos));
           wrist.add(fork);
         }

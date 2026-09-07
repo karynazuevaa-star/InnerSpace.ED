@@ -15,20 +15,22 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // were already correct, since they were never flagged.
 // Table 1's shared point for the handhold pose - both npc_lace_ruffle and
 // npc_male_heavier aim a hand at this exact spot instead of resting it on
-// their own thigh. Originally the table's own geometric center (1.6,-3.4),
-// but aimBoneAtPoint only orients the forearm toward a direction - it
-// doesn't stretch it - so a target further away than the character's own
-// natural reach left visible gaps between the two hands (reported
-// directly, with a screenshot). The midpoint between the two actual seat
-// positions ((1.6,-2.5) and (2.5,-3.4)) is much closer to each character's
-// own reach, and still reads as "hands meeting on the table" between them.
-const TABLE1_HANDS: [number, number, number] = [2.05, 0.76, -2.95];
+// their own thigh. Originally the table's own geometric center, then the
+// midpoint between two chairs set at the table's normal ~0.9m offset -
+// still too far apart for aimBoneAtPointExact's now-clamped reach
+// correction to close (reported directly, with a screenshot of the
+// forearm stretching/warping trying to get there). The chairs themselves
+// were moved closer together and closer to the table (see CafeEnvironment
+// .tsx) rather than reaching harder for a distant target - this is the
+// midpoint between those new, closer seats.
+const TABLE1_HANDS: [number, number, number] = [1.875, 0.76, -3.125];
 
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
-  // on the table
-  { position: [1.6, 0, -2.5], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HANDS } },
-  { position: [2.5, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HANDS } },
+  // on the table - seats pulled in close (see CafeEnvironment.tsx) so
+  // their hands can actually reach each other.
+  { position: [1.6, 0, -2.85], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HANDS } },
+  { position: [2.15, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HANDS } },
 
   // Table 2 (3.4,-0.4): the other two guys together, eating
   { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' } },
