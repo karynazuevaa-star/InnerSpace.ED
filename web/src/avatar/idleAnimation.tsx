@@ -56,6 +56,11 @@ const restChestState = new WeakMap<THREE.Object3D, { quaternion: THREE.Quaternio
 // reused every frame by the activity animation loop instead of
 // re-deriving it each time.
 const seatedForwardCache = new WeakMap<THREE.Object3D, THREE.Vector3>();
+// Per-scene spring state easing the head toward computeHeadTurnTarget's
+// output - keeps a turn-change from snapping straight to the new target
+// the instant the conversation clock ticks over (see the constants near
+// ConversationConfig for why).
+const headTurnSpring = new WeakMap<THREE.Object3D, { pitch: SpringMotion; yaw: SpringMotion }>();
 
 // Lazily captures each bone's rest quaternion the first time it's seen (the
 // glTF bind pose, since nothing poses these scenes before this runs) and
@@ -722,10 +727,12 @@ export interface SeatedArmOverride {
  * each just needs to know which entry is their own. A shared, purely
  * time-based turn clock (no cross-NPC message-passing needed) then lets
  * every member independently agree on who's "speaking" this instant -
- * that member gets a small head bob, everyone else turns to look at them
- * with an occasional nod. `peers` only needs XZ: a seated head sits
- * directly above its own seat, and the look-at math here only ever turns
- * on the horizontal (yaw) axis.
+ * everyone else turns to look at that person (with an occasional gentle
+ * nod), and the speaker themselves looks back at whoever they're
+ * addressing too (people mostly hold eye contact while talking, not just
+ * while listening - reported directly). `peers` only needs XZ: a seated
+ * head sits directly above its own seat, and the look-at math here only
+ * ever turns on the horizontal (yaw) axis.
  */
 export interface ConversationConfig {
   peers: [number, number][];
@@ -739,10 +746,20 @@ const CONVERSATION_TURN_SECONDS = 6;
 // spin the head to face fully backward - reads as "glancing toward" past
 // this, which is about as far as a real seated turn comfortably goes.
 const CONVERSATION_MAX_LOOK_DEGREES = 55;
-const CONVERSATION_NOD_DEGREES = 4;
-const CONVERSATION_NOD_PERIOD_SECONDS = 2.6;
-const CONVERSATION_SPEAK_BOB_DEGREES = 2.5;
-const CONVERSATION_SPEAK_BOB_PERIOD_SECONDS = 0.55;
+// A gentle attentive nod, not a bob - the first pass (4deg, 2.6s) read as
+// nodding too hard and too often (reported directly). Small amplitude,
+// slow period.
+const CONVERSATION_NOD_DEGREES = 1.5;
+const CONVERSATION_NOD_PERIOD_SECONDS = 3.4;
+const CONVERSATION_SPEAK_BOB_DEGREES = 1.2;
+const CONVERSATION_SPEAK_BOB_PERIOD_SECONDS = 1.6;
+// How briskly the head eases toward a new look target - low frequency,
+// critically damped (no overshoot/wobble) so a turn-change reads as a
+// smooth, unhurried glance instead of snapping instantly to face the new
+// speaker the moment the turn clock ticks over (reported directly - the
+// switch itself was too abrupt, independent of the nod).
+const HEAD_TURN_SPRING_FREQUENCY = 1.7;
+const HEAD_TURN_SPRING_DAMPING = 1;
 
 // Offsets are forward/up from the character's own head position, in
 // meters - tuned by eye against the rig's own proportions, not measured
@@ -843,44 +860,70 @@ function computeActivityTarget(
   return headPos.add(forward.clone().multiplyScalar(f + sway)).add(UP.clone().multiplyScalar(up));
 }
 
-// Turns `conversation` (see its own comment above) into this frame's head
-// pose - a pure function of elapsed time, so every member of a table
-// computes the same "who's speaking" answer independently without any
-// shared mutable state. Applied as a rest-relative Euler delta on the
-// 'head' bone alone (via applyRel, by the caller) - nothing else in this
-// file ever rotates 'head', so it can't fight another system for it, and
-// a full aimBoneAt-style world-space solve would be overkill for a small
-// few-degree turn.
-function computeHeadTurn(forward: THREE.Vector3, conversation: ConversationConfig, t: number): [number, number, number] {
+// Turns `conversation` (see its own comment above) into this frame's
+// TARGET head pose (pitch, yaw) - a pure function of elapsed time, so
+// every member of a table computes the same "who's speaking" answer
+// independently without any shared mutable state. Only a target: the
+// caller (SeatedPose) eases the actual bone toward this every frame with
+// a critically-damped spring rather than snapping straight to it, so a
+// turn-change reads as a smooth glance instead of an instant snap
+// (reported directly).
+function computeHeadTurnTarget(forward: THREE.Vector3, conversation: ConversationConfig, t: number): [number, number] {
   const { peers, selfIndex } = conversation;
   const speakerIndex = Math.floor(t / CONVERSATION_TURN_SECONDS) % peers.length;
+  const isSpeaking = speakerIndex === selfIndex;
 
-  if (speakerIndex === selfIndex) {
-    // Speaking: no real mouth movement to drive (see the comment on the
-    // room's own conversation system for why - this rig bakes no
-    // mouth/jaw morph target), so a small head bob is what stands in for
-    // "actively talking" rather than sitting dead still.
-    const bob = Math.sin((t / CONVERSATION_SPEAK_BOB_PERIOD_SECONDS) * Math.PI * 2) *
-      THREE.MathUtils.degToRad(CONVERSATION_SPEAK_BOB_DEGREES);
-    return [bob, 0, 0];
+  // Who to look at: the speaker if listening, or - since people mostly
+  // hold eye contact with who they're addressing while talking too, not
+  // just while listening (reported directly) - whoever else is at the
+  // table if it's this NPC's own turn to speak. A pair just looks at
+  // each other either way; a trio's speaker looks toward the midpoint
+  // between the other two rather than picking a side.
+  let lookX: number;
+  let lookZ: number;
+  if (isSpeaking) {
+    let sumX = 0;
+    let sumZ = 0;
+    let count = 0;
+    peers.forEach(([px, pz], i) => {
+      if (i === selfIndex) return;
+      sumX += px;
+      sumZ += pz;
+      count += 1;
+    });
+    if (count === 0) return [0, 0];
+    lookX = sumX / count;
+    lookZ = sumZ / count;
+  } else {
+    [lookX, lookZ] = peers[speakerIndex];
   }
 
   const [selfX, selfZ] = peers[selfIndex];
-  const [speakerX, speakerZ] = peers[speakerIndex];
-  const dx = speakerX - selfX;
-  const dz = speakerZ - selfZ;
-  if (dx * dx + dz * dz < 1e-6) return [0, 0, 0];
-  const dir = new THREE.Vector3(dx, 0, dz).normalize();
-  // Signed angle from `forward` to `dir` about the world Y axis - a plain
-  // 2D atan2 in the horizontal plane, not a full aimBoneAt solve, since
-  // this only ever needs a yaw (never leans the head toward a peer).
-  const cross = forward.x * dir.z - forward.z * dir.x;
-  const dot = forward.x * dir.x + forward.z * dir.z;
-  const maxYaw = THREE.MathUtils.degToRad(CONVERSATION_MAX_LOOK_DEGREES);
-  const yaw = THREE.MathUtils.clamp(Math.atan2(cross, dot), -maxYaw, maxYaw);
-  const nod = Math.sin((t / CONVERSATION_NOD_PERIOD_SECONDS) * Math.PI * 2) *
-    THREE.MathUtils.degToRad(CONVERSATION_NOD_DEGREES);
-  return [nod, yaw, 0];
+  const dx = lookX - selfX;
+  const dz = lookZ - selfZ;
+  let yaw = 0;
+  if (dx * dx + dz * dz > 1e-6) {
+    const dir = new THREE.Vector3(dx, 0, dz).normalize();
+    // Signed angle from `forward` to `dir` about the world Y axis - a
+    // plain 2D atan2 in the horizontal plane, not a full aimBoneAt solve,
+    // since this only ever needs a yaw (never leans the head toward a
+    // peer).
+    const cross = forward.x * dir.z - forward.z * dir.x;
+    const dot = forward.x * dir.x + forward.z * dir.z;
+    const maxYaw = THREE.MathUtils.degToRad(CONVERSATION_MAX_LOOK_DEGREES);
+    yaw = THREE.MathUtils.clamp(Math.atan2(cross, dot), -maxYaw, maxYaw);
+  }
+
+  // No real mouth movement to drive (this rig bakes no mouth/jaw morph
+  // target), so a small head bob stands in for "actively talking" while
+  // speaking; a much gentler nod for "attentive listening" otherwise.
+  const pitch = isSpeaking
+    ? Math.sin((t / CONVERSATION_SPEAK_BOB_PERIOD_SECONDS) * Math.PI * 2) *
+      THREE.MathUtils.degToRad(CONVERSATION_SPEAK_BOB_DEGREES)
+    : Math.sin((t / CONVERSATION_NOD_PERIOD_SECONDS) * Math.PI * 2) *
+      THREE.MathUtils.degToRad(CONVERSATION_NOD_DEGREES);
+
+  return [pitch, yaw];
 }
 
 // A held fork for the eating activity - plain low-poly primitives, same
@@ -921,7 +964,7 @@ function buildForkProp(): THREE.Group {
  * the-thigh rest with either a named activity or a fixed point to reach
  * for - see SeatedArmOverride. `conversation` (optional - solo NPCs like
  * table 3's don't get one) turns the head-only speak/listen system on -
- * see ConversationConfig and computeHeadTurn.
+ * see ConversationConfig and computeHeadTurnTarget.
  */
 export function SeatedPose({
   leftArm,
@@ -935,7 +978,7 @@ export function SeatedPose({
   const { posableScenes } = useAvatarContext();
   const posed = useRef(false);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, frameDelta) => {
     const scenes = posableScenes;
     if (scenes.size === 0) return;
 
@@ -1106,13 +1149,24 @@ export function SeatedPose({
     }
 
     // Head-only speak/listen turn-taking - see ConversationConfig's own
-    // comment for why this doesn't touch the arms.
+    // comment for why this doesn't touch the arms. Eased toward the
+    // target with a spring (see HEAD_TURN_SPRING_FREQUENCY's own comment)
+    // rather than applied directly, so a turn-change reads as a smooth
+    // glance instead of snapping the instant the speaking turn changes.
     if (conversation) {
+      const headDelta = Math.min(frameDelta, 1 / 30);
       for (const scene of scenes) {
         const forward = seatedForwardCache.get(scene);
         if (!forward) continue;
-        const [pitch, yaw, roll] = computeHeadTurn(forward, conversation, clock.getElapsedTime());
-        applyRel([scene], restMap, 'head', pitch, yaw, roll);
+        let spring = headTurnSpring.get(scene);
+        if (!spring) {
+          spring = { pitch: { value: 0, velocity: 0 }, yaw: { value: 0, velocity: 0 } };
+          headTurnSpring.set(scene, spring);
+        }
+        const [targetPitch, targetYaw] = computeHeadTurnTarget(forward, conversation, clock.getElapsedTime());
+        springStep(spring.pitch, targetPitch, headDelta, HEAD_TURN_SPRING_FREQUENCY, HEAD_TURN_SPRING_DAMPING);
+        springStep(spring.yaw, targetYaw, headDelta, HEAD_TURN_SPRING_FREQUENCY, HEAD_TURN_SPRING_DAMPING);
+        applyRel([scene], restMap, 'head', spring.pitch.value, spring.yaw.value, 0);
       }
     }
 
