@@ -13,24 +13,27 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // assuming 0 meant -Z. Every "north" seat (higher z than its table) needs
 // rotationY=PI to face the table (-Z); the "east"/"west" (+-PI/2) seats
 // were already correct, since they were never flagged.
-// Table 1's shared point for the handhold pose - both npc_lace_ruffle and
-// npc_male_heavier aim a hand at this exact spot instead of resting it on
-// their own thigh. Originally the table's own geometric center, then the
-// midpoint between two chairs set at the table's normal ~0.9m offset -
-// still too far apart for aimBoneAtPointExact's now-clamped reach
-// correction to close (reported directly, with a screenshot of the
-// forearm stretching/warping trying to get there). The chairs themselves
-// were moved closer together and closer to the table (see CafeEnvironment
-// .tsx) rather than reaching harder for a distant target - this is the
-// midpoint between those new, closer seats.
-const TABLE1_HANDS: [number, number, number] = [1.875, 0.76, -3.125];
+// Table 1's handhold pose - both npc_lace_ruffle and npc_male_heavier reach
+// for the same spot on the table instead of resting a hand on their own
+// thigh. Used to be ONE shared point for both hands, which closed the gap
+// between them but left the two hand meshes occupying the same space -
+// clipping through each other and, since the point sat right at table
+// height, into the tabletop too (reported directly, with a screenshot).
+// Two points instead, a few centimeters apart vertically (and nudged
+// slightly toward each other horizontally so the top hand's fingers
+// actually drape over the back of the bottom one) - one for the hand
+// resting on the table, one for the hand resting on TOP of that hand, the
+// way the reference photo showed them.
+const TABLE1_HAND_LOWER: [number, number, number] = [1.86, 0.79, -3.13];
+const TABLE1_HAND_UPPER: [number, number, number] = [1.9, 0.825, -3.1];
 
 const NPCS: NpcConfig[] = [
   // Table 1 (1.6,-3.4): lace_ruffle + male_heavier together, holding hands
   // on the table - seats pulled in close (see CafeEnvironment.tsx) so
-  // their hands can actually reach each other.
-  { position: [1.6, 0, -2.85], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HANDS } },
-  { position: [2.15, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HANDS } },
+  // their hands can actually reach each other. lace_ruffle's hand rests on
+  // top, male_heavier's underneath.
+  { position: [1.6, 0, -2.85], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER } },
+  { position: [2.15, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER } },
 
   // Table 2 (3.4,-0.4): the other two guys together, eating
   { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' } },

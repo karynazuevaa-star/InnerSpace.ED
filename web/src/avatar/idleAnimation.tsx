@@ -866,9 +866,9 @@ export function SeatedPose({
         // here instead of applyRel's copy-the-rotation trick).
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
           if (override?.activity !== 'eating') continue;
-          const elbow = scene.getObjectByName(`lowerarm01${side}`);
           const wrist = scene.getObjectByName(`wrist${side}`);
-          if (!elbow || !wrist) continue;
+          const gripFinger = scene.getObjectByName(`finger3-1${side}`);
+          if (!wrist || !gripFinger) continue;
 
           // Curl the gripping fingers (not the thumb, which wraps less)
           // into a closed-around-a-handle shape - a static pose, applied
@@ -899,11 +899,23 @@ export function SeatedPose({
           // explicit world-space basis first and converting into the
           // wrist's local space sidesteps that the same way aimBoneAt
           // itself does for rotations.
-          const elbowPos = new THREE.Vector3();
+          //
+          // The pointing axis is measured wrist -> middle-finger base, not
+          // wrist -> elbow: the forearm's own direction doesn't account for
+          // whatever rotation the wrist bone itself carries (this rig's
+          // wrists aren't just a straight continuation of the forearm), so
+          // aiming the fork along the forearm left it angled back toward
+          // the wrist instead of out along the curled fingers where the
+          // grip above actually closes (reported directly - "the fork
+          // should be between the fingers, but now it's folded back into
+          // the hand"). A finger's own base joint doesn't move when that
+          // finger curls (only its rotation does), so this stays a stable,
+          // curl-independent read of which way the hand itself is facing.
           const wristPos = new THREE.Vector3();
-          elbow.getWorldPosition(elbowPos);
+          const gripFingerPos = new THREE.Vector3();
           wrist.getWorldPosition(wristPos);
-          const zAxis = wristPos.clone().sub(elbowPos).normalize();
+          gripFinger.getWorldPosition(gripFingerPos);
+          const zAxis = gripFingerPos.clone().sub(wristPos).normalize();
           const worldUp = new THREE.Vector3(0, 1, 0);
           const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
           const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
@@ -914,13 +926,10 @@ export function SeatedPose({
 
           const fork = buildForkProp();
           fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
-          // Further out along zAxis than before (0.05 -> 0.095): that
-          // offset was measured from the wrist JOINT, landing the handle
-          // right at the wrist crease rather than out in the palm/fingers
-          // where the curled grip above actually closes around it
-          // (reported directly - "the fork is at the wrist, not in the
-          // palm"). ~0.095m approximates this rig's own palm length.
-          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.095)).add(yAxis.clone().multiplyScalar(0.012));
+          // Extends past the curled fingertips (not just to their base),
+          // so the handle actually crosses through the closed grip instead
+          // of stopping short of it.
+          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.1)).add(yAxis.clone().multiplyScalar(0.01));
           fork.position.copy(wrist.worldToLocal(desiredWorldPos));
           wrist.add(fork);
         }
