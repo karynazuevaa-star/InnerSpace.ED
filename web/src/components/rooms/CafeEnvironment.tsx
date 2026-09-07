@@ -39,9 +39,14 @@ export function CafeEnvironment() {
       <PendantLight position={[1.6, 2.6, -3.4]} />
       <FoodPlate position={[1.6, 0.74, -3.6]} />
 
+      {/* Seats were 0.9m from the table center (vs table1's 0.62m) - left a
+          visible ~27cm gap between the chairs and the table edge, reading
+          as too far back to plausibly reach their own plates (reported
+          directly, with a screenshot). Pulled in to the same 0.62m table1
+          already uses. */}
       <Table position={[3.4, 0, -0.4]} />
-      <Chair position={[3.4, 0, 0.5]} rotationY={Math.PI} />
-      <Chair position={[4.3, 0, -0.4]} rotationY={-Math.PI / 2} />
+      <Chair position={[3.4, 0, 0.22]} rotationY={Math.PI} />
+      <Chair position={[4.02, 0, -0.4]} rotationY={-Math.PI / 2} />
       <PendantLight position={[3.4, 2.6, -0.4]} />
       <FoodPlate position={[3.35, 0.74, -0.15]} />
       <FoodPlate position={[3.65, 0.74, -0.55]} />

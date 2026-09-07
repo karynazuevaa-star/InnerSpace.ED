@@ -63,8 +63,8 @@ const [TABLE1_TALK_LACE, TABLE1_TALK_HEAVIER] = conversationGroup([
   [2.22, 0, -3.4],
 ]);
 const [TABLE2_TALK_AVERAGE, TABLE2_TALK_CASUALSUIT] = conversationGroup([
-  [3.4, 0, 0.5],
-  [4.3, 0, -0.4],
+  [3.4, 0, 0.22],
+  [4.02, 0, -0.4],
 ]);
 const [TABLE5_TALK_ASIAN, TABLE5_TALK_NATIVE, TABLE5_TALK_KNIT] = conversationGroup([
   [-3.6, 0, -1.1],
@@ -80,9 +80,11 @@ const NPCS: NpcConfig[] = [
   { position: [1.6, 0, -2.78], rotationY: Math.PI, preset: 'npc_lace_ruffle', seated: true, rightArm: { target: TABLE1_HAND_UPPER }, conversation: TABLE1_TALK_LACE },
   { position: [2.22, 0, -3.4], rotationY: -Math.PI / 2, preset: 'npc_male_heavier', seated: true, leftArm: { target: TABLE1_HAND_LOWER }, conversation: TABLE1_TALK_HEAVIER },
 
-  // Table 2 (3.4,-0.4): the other two guys together, eating
-  { position: [3.4, 0, 0.5], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_AVERAGE },
-  { position: [4.3, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_CASUALSUIT },
+  // Table 2 (3.4,-0.4): the other two guys together, eating - seats pulled
+  // in to 0.62m from the table center (see CafeEnvironment.tsx), matching
+  // table1, so they read as close enough to actually reach their plates.
+  { position: [3.4, 0, 0.22], rotationY: Math.PI, preset: 'npc_male_average', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_AVERAGE },
+  { position: [4.02, 0, -0.4], rotationY: -Math.PI / 2, preset: 'npc_male_casualsuit', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE2_TALK_CASUALSUIT },
 
   // Table 3 (-2.6,1.4): thinner alone, coffee on the table
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },

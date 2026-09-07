@@ -881,6 +881,7 @@ function computeActivityTarget(
   forward: THREE.Vector3,
   activity: SeatedArmActivity,
   t: number,
+  paused: boolean,
 ) {
   const head = scene.getObjectByName('head');
   if (!head) return null;
@@ -890,9 +891,16 @@ function computeActivityTarget(
 
   if (activity === 'eating') {
     const mouth = ARM_ACTIVITY_OFFSETS.eating;
+    // Paused (this NPC's own turn to speak) forces blend to 0 - the exact
+    // same "fork resting on the plate" pose the cycle already passes
+    // through every rotation, just held instead of continuing on to the
+    // next bite. Requested directly: eating should alternate with talking
+    // rather than run the whole time regardless of who's speaking.
     const phase = t % EATING_PERIOD_SECONDS;
     let blend: number;
-    if (phase < EATING_LIFT_SECONDS) {
+    if (paused) {
+      blend = 0;
+    } else if (phase < EATING_LIFT_SECONDS) {
       blend = THREE.MathUtils.smoothstep(phase / EATING_LIFT_SECONDS, 0, 1);
     } else if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS) {
       blend = 1;
@@ -1010,15 +1018,21 @@ function computeHeadTurnTarget(forward: THREE.Vector3, conversation: Conversatio
   return [pitch, yaw];
 }
 
-// Whether-speaking check duplicated from computeHeadTurnTarget rather than
-// threaded through it: this doesn't depend on `forward` (mouth movement
-// isn't a world-space rotation) and is applied once per frame across all
-// of an NPC's scenes via applyMorphInfluence, not per-scene like the head
-// turn - see the SeatedPose call site.
-function computeMouthOpen(conversation: ConversationConfig, t: number): number {
+// Same clock, computed independently by every seat (see ConversationConfig's
+// own comment) - shared by the mouth-open pulse below and by SeatedPose's
+// eating-activity pause, so a busy hand and an open mouth agree on whose
+// turn it is without threading state between them.
+function isConversationSpeaker(conversation: ConversationConfig, t: number): boolean {
   const { peers, selfIndex } = conversation;
-  const speakerIndex = Math.floor(t / CONVERSATION_TURN_SECONDS) % peers.length;
-  if (speakerIndex !== selfIndex) return 0;
+  return Math.floor(t / CONVERSATION_TURN_SECONDS) % peers.length === selfIndex;
+}
+
+// Doesn't depend on `forward` (mouth movement isn't a world-space
+// rotation) and is applied once per frame across all of an NPC's scenes
+// via applyMorphInfluence, not per-scene like the head turn - see the
+// SeatedPose call site.
+function computeMouthOpen(conversation: ConversationConfig, t: number): number {
+  if (!isConversationSpeaker(conversation, t)) return 0;
   const cycle = Math.max(0, Math.sin((t / CONVERSATION_MOUTH_TALK_PERIOD_SECONDS) * Math.PI * 2));
   return cycle ** 2.2 * CONVERSATION_MOUTH_OPEN_MAX;
 }
@@ -1234,14 +1248,22 @@ export function SeatedPose({
     // the handhold pose, just less obvious here since there's no second
     // hand to visibly miss. Reported directly as the phone hand reading as
     // still resting against the stomach.
-    for (const scene of scenes) {
-      const forward = seatedForwardCache.get(scene);
-      if (!forward) continue;
-      for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
-        if (!override?.activity) continue;
-        const target = computeActivityTarget(scene, forward, override.activity, clock.getElapsedTime());
-        if (!target) continue;
-        aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+    {
+      const activityTime = clock.getElapsedTime();
+      // Only 'eating' pauses for a speaking turn - phone/gesture keep
+      // running regardless (gesture in particular reads as something you
+      // do WHILE talking, not instead of it).
+      const eatingPaused = !!conversation && isConversationSpeaker(conversation, activityTime);
+      for (const scene of scenes) {
+        const forward = seatedForwardCache.get(scene);
+        if (!forward) continue;
+        for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
+          if (!override?.activity) continue;
+          const paused = override.activity === 'eating' && eatingPaused;
+          const target = computeActivityTarget(scene, forward, override.activity, activityTime, paused);
+          if (!target) continue;
+          aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, target);
+        }
       }
     }
 
