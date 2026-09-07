@@ -793,6 +793,21 @@ const CONVERSATION_NOD_DEGREES = 1.5;
 const CONVERSATION_NOD_PERIOD_SECONDS = 3.4;
 const CONVERSATION_SPEAK_BOB_DEGREES = 1.2;
 const CONVERSATION_SPEAK_BOB_PERIOD_SECONDS = 1.6;
+// Periodic break in eye contact to glance down at the table/food instead
+// of staring fixedly at whoever's speaking the entire time - reported
+// directly ("смотрели то друг на друга - то на стол, типо на еду"),
+// applies to speaker and listeners alike. One glance every ~5.5s, held for
+// ~1.8s - short enough to read as a glance, not a stare into the plate.
+// Staggered per seat (selfIndex) below so a table's members don't all
+// glance down in lockstep.
+const CONVERSATION_TABLE_GLANCE_PERIOD_SECONDS = 5.5;
+const CONVERSATION_TABLE_GLANCE_DURATION_SECONDS = 1.8;
+// Rotation is about `rightAxis = forward x worldUp`; for forward=(0,0,-1)
+// that's +X, and rotating a horizontal forward vector around +X by a
+// positive angle lifts its Y component (tilts the head UP) - so a
+// downward glance at the table needs a NEGATIVE pitch. Verified against
+// the standard X-axis rotation matrix (y'=y*cosθ-z*sinθ), not eyeballed.
+const CONVERSATION_TABLE_LOOK_PITCH_DEGREES = -18;
 // How briskly the head eases toward a new look target - low frequency,
 // critically damped (no overshoot/wobble) so a turn-change reads as a
 // smooth, unhurried glance instead of snapping instantly to face the new
@@ -970,6 +985,16 @@ function computeHeadTurnTarget(forward: THREE.Vector3, conversation: Conversatio
       THREE.MathUtils.degToRad(CONVERSATION_SPEAK_BOB_DEGREES)
     : Math.sin((t / CONVERSATION_NOD_PERIOD_SECONDS) * Math.PI * 2) *
       THREE.MathUtils.degToRad(CONVERSATION_NOD_DEGREES);
+
+  // Overrides both of the above: whether speaking or listening, everyone
+  // periodically breaks eye contact for a moment to glance down at their
+  // own plate (straight ahead - the food is already directly in front of
+  // a seated person, no yaw needed) instead of staying locked onto
+  // whoever's speaking for the entire conversation.
+  const glancePhase = (t + selfIndex * 1.9) % CONVERSATION_TABLE_GLANCE_PERIOD_SECONDS;
+  if (glancePhase < CONVERSATION_TABLE_GLANCE_DURATION_SECONDS) {
+    return [THREE.MathUtils.degToRad(CONVERSATION_TABLE_LOOK_PITCH_DEGREES), 0];
+  }
 
   return [pitch, yaw];
 }
