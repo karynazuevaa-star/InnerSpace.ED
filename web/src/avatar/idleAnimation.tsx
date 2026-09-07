@@ -1300,8 +1300,14 @@ export function SeatedPose({
           fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
           // Extends past the curled fingertips (not just to their base),
           // so the handle actually crosses through the closed grip instead
-          // of stopping short of it.
-          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.1)).add(yAxis.clone().multiplyScalar(0.01));
+          // of stopping short of it. Was 0.1 - the fork's own origin sits
+          // near the handle's far end (close to the head/tines, not the
+          // grip end - see buildForkProp), so 0.1 out from the wrist put
+          // the actual grip portion back around the base knuckles/palm,
+          // reading as held too far back in the fist instead of where the
+          // curled FAR phalanges (fingertips) actually close around it
+          // (reported directly, with a screenshot). Pushed further out.
+          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.14)).add(yAxis.clone().multiplyScalar(0.01));
           fork.position.copy(wrist.worldToLocal(desiredWorldPos));
           wrist.add(fork);
         }
