@@ -92,6 +92,46 @@ function applyRel(
   }
 }
 
+// Same idea as applyRel - a rest-relative delta, recomputed fresh from
+// REST every call rather than compounding onto whatever's already there -
+// but for a delta expressed in WORLD space instead of the bone's own
+// local axes. applyRel's plain local Euler works fine for a few-degree
+// sway on a bone whose rest orientation is close to identity, but 'head'
+// (like nearly everything else in this rig - see aimBoneAt's own comment
+// on the legs) turned out to carry a large twist of its own: logging its
+// rest quaternion directly showed a -20..-60deg tilt already baked into
+// the local X axis, so a guessed local "yaw" ended up rotating around
+// some skewed combination of world axes instead of a clean vertical turn
+// - heads read as tipping/looking down instead of turning to face a
+// tablemate (reported directly, with a screenshot). Converts the world
+// delta into the bone's local space via the same parent-quaternion
+// conjugation aimBoneAt uses for its own world-to-local step.
+function applyRelWorld(
+  scenes: Iterable<THREE.Object3D>,
+  restMap: WeakMap<THREE.Object3D, Map<string, THREE.Quaternion>>,
+  name: string,
+  worldDeltaQuat: THREE.Quaternion,
+) {
+  for (const scene of scenes) {
+    const bone = scene.getObjectByName(name);
+    if (!bone || !bone.parent) continue;
+    let rests = restMap.get(scene);
+    if (!rests) {
+      rests = new Map();
+      restMap.set(scene, rests);
+    }
+    let rest = rests.get(name);
+    if (!rest) {
+      rest = bone.quaternion.clone();
+      rests.set(name, rest);
+    }
+    const parentWorldQuat = new THREE.Quaternion();
+    bone.parent.getWorldQuaternion(parentWorldQuat);
+    const localDelta = parentWorldQuat.clone().invert().multiply(worldDeltaQuat).multiply(parentWorldQuat);
+    bone.quaternion.copy(localDelta).multiply(rest);
+  }
+}
+
 // A local-frame `Euler(x,y,z)` delta (applyRel's rest*delta) is fine for
 // the few-degree standing sway elsewhere in this file, but this rig's leg
 // bones carry a large twist in their own rest orientation relative to
@@ -1166,7 +1206,19 @@ export function SeatedPose({
         const [targetPitch, targetYaw] = computeHeadTurnTarget(forward, conversation, clock.getElapsedTime());
         springStep(spring.pitch, targetPitch, headDelta, HEAD_TURN_SPRING_FREQUENCY, HEAD_TURN_SPRING_DAMPING);
         springStep(spring.yaw, targetYaw, headDelta, HEAD_TURN_SPRING_FREQUENCY, HEAD_TURN_SPRING_DAMPING);
-        applyRel([scene], restMap, 'head', spring.pitch.value, spring.yaw.value, 0);
+        // Yaw is always a turn about world (vertical) Y - it doesn't
+        // matter which way the character faces. Pitch (the nod/bob) needs
+        // to tip the face down/up regardless of facing direction too, so
+        // it rotates about this character's own horizontal "right" axis
+        // (perpendicular to `forward` and world up), not a fixed world
+        // axis - a fixed world X/Z would nod some characters forward and
+        // others sideways depending on which way their chair faces.
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const rightAxis = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
+        const worldDelta = new THREE.Quaternion()
+          .setFromAxisAngle(worldUp, spring.yaw.value)
+          .multiply(new THREE.Quaternion().setFromAxisAngle(rightAxis, spring.pitch.value));
+        applyRelWorld([scene], restMap, 'head', worldDelta);
       }
     }
 
