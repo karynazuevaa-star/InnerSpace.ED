@@ -23,11 +23,17 @@ import { useLanguage } from '../../i18n/LanguageContext';
 // midpoint already reached fine - nudging the upper point sideways too
 // (tried first) added enough extra horizontal reach that the exact-reach
 // clamp couldn't fully close it again, and the forearm read as visibly
-// warped reaching for it (reported directly, with a screenshot). A small
-// 2.5cm vertical stack is enough to read as "one hand resting on top of
-// the other" without asking either arm to reach any further than the
-// single shared point already did.
-const TABLE1_HAND_LOWER: [number, number, number] = [1.875, 0.79, -3.125];
+// warped reaching for it (reported directly, with a screenshot). A 2.5cm
+// vertical stack still let the two hands clip into each other (reported
+// directly, with a screenshot) - these poses are aimed only ONCE (see the
+// `posed.current` guard below), so a hand's exact world position also
+// drifts slightly afterward as that character's own breathing bob moves
+// their torso/shoulder out from under an already-computed, now-fixed arm
+// rotation. 3cm gives enough clearance to stay clear of both the other
+// hand and that drift without asking either arm to reach noticeably
+// further than the single shared point already did (4cm, tried first,
+// left a visible gap instead of a stack - the hands need to still touch).
+const TABLE1_HAND_LOWER: [number, number, number] = [1.875, 0.785, -3.125];
 const TABLE1_HAND_UPPER: [number, number, number] = [1.875, 0.815, -3.125];
 
 const NPCS: NpcConfig[] = [
