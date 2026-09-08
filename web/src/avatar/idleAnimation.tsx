@@ -1310,7 +1310,20 @@ export function SeatedPose({
           const gripFingerPos = new THREE.Vector3();
           wrist.getWorldPosition(wristPos);
           gripFinger.getWorldPosition(gripFingerPos);
-          const zAxis = gripFingerPos.clone().sub(wristPos).normalize();
+          const rawZAxis = gripFingerPos.clone().sub(wristPos).normalize();
+          // A real grip's exit angle out of a closed fist is roughly
+          // constant relative to the palm, however the arm itself happens
+          // to be angled - but aligning the fork straight to raw
+          // wrist->knuckle tracks the ARM's angle directly, so whenever
+          // the arm reached down toward a table-height target (a plate,
+          // or table1's on-table hand target) the fork pointed almost
+          // straight down out of the fist, like a blade rather than a
+          // held utensil (reported directly, with screenshots - "как у
+          // россомахи", like Wolverine's claws). Damping the vertical
+          // component keeps the fork closer to a natural forward-diagonal
+          // angle regardless of how steeply the arm itself is reaching -
+          // an approximation of a fixed grip angle, not a measurement.
+          const zAxis = new THREE.Vector3(rawZAxis.x, rawZAxis.y * 0.35, rawZAxis.z).normalize();
           const worldUp = new THREE.Vector3(0, 1, 0);
           const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
           const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
