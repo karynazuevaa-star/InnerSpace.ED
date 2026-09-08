@@ -1138,14 +1138,17 @@ function buildForkProp(): THREE.Group {
 // the inconsistency entirely instead of chasing it with a better sample.
 function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R') {
   const wrist = scene.getObjectByName(`wrist${side}`);
-  const gripFinger = scene.getObjectByName(`finger3-1${side}`);
+  const gripFinger = scene.getObjectByName(`finger3-1${side}`); // middle finger base
+  const indexFinger = scene.getObjectByName(`finger2-1${side}`); // index finger base
   const fork = wrist?.getObjectByName(HELD_FORK_NAME);
-  if (!wrist || !gripFinger || !fork) return;
+  if (!wrist || !gripFinger || !indexFinger || !fork) return;
 
   const wristPos = new THREE.Vector3();
   const gripFingerPos = new THREE.Vector3();
+  const indexFingerPos = new THREE.Vector3();
   wrist.getWorldPosition(wristPos);
   gripFinger.getWorldPosition(gripFingerPos);
+  indexFinger.getWorldPosition(indexFingerPos);
   const rawZAxis = gripFingerPos.clone().sub(wristPos).normalize();
   // A real grip's exit angle out of a closed fist is roughly constant
   // relative to the palm, however the arm itself happens to be angled -
@@ -1166,11 +1169,19 @@ function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R') {
   wrist.getWorldQuaternion(wristWorldQuat);
   fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
 
-  // Extends past the curled fingertips (not just to their base), so the
-  // handle actually crosses through the closed grip instead of stopping
-  // short of it - see the fork-attachment block's own comment for the
-  // 0.14 tuning.
-  const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.14)).add(yAxis.clone().multiplyScalar(0.01));
+  // Anchored at the midpoint between the index and middle finger bases,
+  // not stretched out from the wrist - reported directly, with
+  // screenshots, that measuring purely from the wrist put the fork
+  // coming out of the wrist/heel of the hand instead of sitting where a
+  // fork actually rests, between those two fingers. Both base joints are
+  // curl-independent (only their rotation moves when a finger curls, not
+  // their own position - see the comment on gripFinger above), so this
+  // stays a stable anchor regardless of the grip curl amount. A small
+  // further push along zAxis extends past that midpoint toward the
+  // curled fingertips, so the handle still crosses through the closed
+  // grip instead of stopping short of it.
+  const gripAnchor = gripFingerPos.clone().add(indexFingerPos).multiplyScalar(0.5);
+  const desiredWorldPos = gripAnchor.clone().add(zAxis.clone().multiplyScalar(0.06)).add(yAxis.clone().multiplyScalar(0.01));
   fork.position.copy(wrist.worldToLocal(desiredWorldPos));
 }
 
