@@ -1176,12 +1176,21 @@ function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R') {
   // fork actually rests, between those two fingers. Both base joints are
   // curl-independent (only their rotation moves when a finger curls, not
   // their own position - see the comment on gripFinger above), so this
-  // stays a stable anchor regardless of the grip curl amount. A small
-  // further push along zAxis extends past that midpoint toward the
-  // curled fingertips, so the handle still crosses through the closed
-  // grip instead of stopping short of it.
+  // stays a stable anchor regardless of the grip curl amount.
   const gripAnchor = gripFingerPos.clone().add(indexFingerPos).multiplyScalar(0.5);
-  const desiredWorldPos = gripAnchor.clone().add(zAxis.clone().multiplyScalar(0.06)).add(yAxis.clone().multiplyScalar(0.01));
+  // The fork's own local origin (buildForkProp) sits 0.08 forward of the
+  // handle's own grip/back end (the handle spans local z -0.08..0.02) -
+  // pushing the origin only 0.06 along zAxis therefore left the handle's
+  // BACK end sitting 0.02 BEHIND gripAnchor, not at it. Measured directly
+  // (logging each finger base's position relative to the wrist): moving
+  // backward along zAxis from the index/middle anchor moves almost
+  // straight toward the thumb (thumb sits at a notably less negative X
+  // than any of the other four fingers), so that 2cm shortfall was enough
+  // to read as "held between thumb and index" instead of "index and
+  // middle" (reported directly, with a screenshot). Matching the push to
+  // the handle's own 0.08 offset puts the grip end exactly at the anchor
+  // instead of behind it.
+  const desiredWorldPos = gripAnchor.clone().add(zAxis.clone().multiplyScalar(0.08)).add(yAxis.clone().multiplyScalar(0.01));
   fork.position.copy(wrist.worldToLocal(desiredWorldPos));
 }
 
