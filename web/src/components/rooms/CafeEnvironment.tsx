@@ -77,11 +77,19 @@ export function CafeEnvironment() {
       <PendantLight position={[-2.6, 2.6, 1.4]} />
       <CoffeeCup position={[-2.6, 0.74, 1.6]} />
 
-      <Table position={[0.5, 0, 1.8]} />
-      <Chair position={[0.5, 0, 2.7]} rotationY={Math.PI} />
-      <Chair position={[1.4, 0, 1.8]} rotationY={-Math.PI / 2} />
+      {/* Same "too far from a too-small table" pattern already fixed for
+          table2/table5 (0.9m seats around a 0.42-radius table) - reported
+          directly, with a screenshot. Same proven fix, reused wholesale:
+          table2's exact radius/seat-distance pair (0.46 table, 0.62m
+          seats), and seated opposite each other (north/south) rather than
+          at the original adjacent (north/east) corners - table2's own
+          comment covers why adjacent corners at a pulled-in distance read
+          as the two of them crowding each other, not just the table. */}
+      <Table position={[0.5, 0, 1.8]} radius={0.46} />
+      <Chair position={[0.5, 0, 2.42]} rotationY={Math.PI} />
+      <Chair position={[0.5, 0, 1.18]} rotationY={0} />
       <PendantLight position={[0.5, 2.6, 1.8]} />
-      <FoodPlate position={[0.65, 0.74, 1.95]} />
+      <FoodPlate position={[0.5, 0.74, 1.65]} />
 
       {/* Three chairs at 0.9m from a table sized for two (0.42 radius,
           same as every other table here) put the legs of all three -

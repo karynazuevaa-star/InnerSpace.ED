@@ -1136,7 +1136,7 @@ function buildForkProp(): THREE.Group {
 // changing WHICH pose got sampled a couple of times. Recomputing from the
 // actual current wrist/gripFinger world positions every frame sidesteps
 // the inconsistency entirely instead of chasing it with a better sample.
-function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R') {
+function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R', forward: THREE.Vector3) {
   const wrist = scene.getObjectByName(`wrist${side}`);
   const gripFinger = scene.getObjectByName(`finger3-1${side}`); // middle finger base
   const indexFinger = scene.getObjectByName(`finger2-1${side}`); // index finger base
@@ -1157,9 +1157,28 @@ function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R') {
   // height target (a plate, or a fixed on-table hand target) the fork
   // pointed almost straight down out of the fist, like a blade rather
   // than a held utensil ("как у россомахи" - like Wolverine's claws).
-  // Damping the vertical component keeps the fork closer to a natural
-  // forward-diagonal angle regardless of how steeply the arm is reaching.
-  const zAxis = new THREE.Vector3(rawZAxis.x, rawZAxis.y * 0.35, rawZAxis.z).normalize();
+  // Damping the vertical component alone wasn't enough - table1's
+  // lace_ruffle still showed a fork pointing almost straight up
+  // (reported directly, with a screenshot), because HER particular reach
+  // has a raw wrist->knuckle direction that's ALREADY nearly vertical
+  // (tiny x/z to begin with) - damping y down to 35% of a near-1 value
+  // still leaves it dominating over x/z that were never large to start
+  // with. A proportional damp can't rescue a direction with no horizontal
+  // signal left to preserve.
+  //
+  // Rebuilt to not depend on the arm's own angle at all: take the raw
+  // direction's horizontal (XZ-plane) component when it's substantial
+  // enough to trust (the normal case - reaching for a plate, gesturing,
+  // etc.), otherwise fall back to the character's own body-forward
+  // (always well-defined and horizontal) for the edge case where the
+  // reach is nearly vertical. Either way, add one FIXED downward tilt
+  // afterward - not derived from how steep the current reach happens to
+  // be - so the result no longer tracks the arm's own extremes.
+  const rawHoriz = new THREE.Vector3(rawZAxis.x, 0, rawZAxis.z);
+  const horizDir = rawHoriz.length() > 0.3 ? rawHoriz.normalize() : new THREE.Vector3(forward.x, 0, forward.z).normalize();
+  const FORK_DOWNTILT_DEGREES = 22;
+  const tilt = THREE.MathUtils.degToRad(FORK_DOWNTILT_DEGREES);
+  const zAxis = horizDir.clone().multiplyScalar(Math.cos(tilt)).add(new THREE.Vector3(0, -Math.sin(tilt), 0)).normalize();
   const worldUp = new THREE.Vector3(0, 1, 0);
   const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
   const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
@@ -1340,7 +1359,7 @@ export function SeatedPose({
           // loop.
           const fork = buildForkProp();
           wrist.add(fork);
-          updateHeldForkPose(scene, side);
+          updateHeldForkPose(scene, side, forward);
         }
       }
       posed.current = true;
@@ -1410,7 +1429,7 @@ export function SeatedPose({
           const dynamicRoleEats =
             side === 'R' && !override?.activity && !override?.target && !!conversation && conversation.peers.length >= 3;
           if (override?.activity === 'eating' || dynamicRoleEats || override?.holdsFork) {
-            updateHeldForkPose(scene, side);
+            updateHeldForkPose(scene, side, forward);
           }
         }
       }

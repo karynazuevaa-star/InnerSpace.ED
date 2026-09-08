@@ -115,8 +115,8 @@ const [TABLE2_TALK_AVERAGE, TABLE2_TALK_CASUALSUIT] = conversationGroup([
 // activity below still supplies the "eat" half of that, switching to a
 // gesture for her own speaking turn the same way table2's guys do.
 const [TABLE4_TALK_POLKA, TABLE4_TALK_TIERED] = conversationGroup([
-  [0.5, 0, 2.7],
-  [1.4, 0, 1.8],
+  [0.5, 0, 2.42],
+  [0.5, 0, 1.18],
 ]);
 const [TABLE5_TALK_ASIAN, TABLE5_TALK_NATIVE, TABLE5_TALK_KNIT] = conversationGroup([
   [-3.6, 0, -1.24],
@@ -147,10 +147,12 @@ const NPCS: NpcConfig[] = [
   { position: [-2.6, 0, 2.3], rotationY: Math.PI, preset: 'npc_thinner', seated: true },
 
   // Table 4 (0.5,1.8): polka_skirt on her phone, tiered_dress with food -
-  // now also mid-conversation (see TABLE4_TALK_* above), each gesturing
-  // instead of scrolling/eating during their own speaking turn.
-  { position: [0.5, 0, 2.7], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true, rightArm: { activity: 'phone' }, conversation: TABLE4_TALK_POLKA },
-  { position: [1.4, 0, 1.8], rotationY: -Math.PI / 2, preset: 'npc_tiered_dress', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE4_TALK_TIERED },
+  // mid-conversation (see TABLE4_TALK_* above), each gesturing instead of
+  // scrolling/eating during their own speaking turn. Seated opposite each
+  // other (north/south, see CafeEnvironment.tsx's own comment) rather
+  // than the original adjacent corners.
+  { position: [0.5, 0, 2.42], rotationY: Math.PI, preset: 'npc_polka_skirt', seated: true, rightArm: { activity: 'phone' }, conversation: TABLE4_TALK_POLKA },
+  { position: [0.5, 0, 1.18], rotationY: 0, preset: 'npc_tiered_dress', seated: true, rightArm: { activity: 'eating' }, conversation: TABLE4_TALK_TIERED },
 
   // Table 5 (-3.6,-2.0): the remaining three together, mid-conversation -
   // speak/listen/eat rotates between all three (see computeConversationRole
