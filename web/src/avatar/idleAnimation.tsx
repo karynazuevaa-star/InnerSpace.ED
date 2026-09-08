@@ -1104,8 +1104,11 @@ function computeMouthOpen(conversation: ConversationConfig, t: number): number {
 // automatically follows every subsequent frame's forearm re-aim for
 // free, the same way a garment's sleeve already follows the arm
 // underneath it without needing its own per-frame code.
+const HELD_FORK_NAME = 'heldFork';
+
 function buildForkProp(): THREE.Group {
   const group = new THREE.Group();
+  group.name = HELD_FORK_NAME;
   const metal = new THREE.MeshStandardMaterial({ color: '#cfcfcf', roughness: 0.3, metalness: 0.7 });
   const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.007, 0.1, 8), metal);
   handle.rotation.x = Math.PI / 2;
@@ -1120,6 +1123,55 @@ function buildForkProp(): THREE.Group {
     group.add(prong);
   }
   return group;
+}
+
+// Recomputed every frame (see the SeatedPose call sites) rather than
+// baked once at attach time - aimBoneAtPointExact's roll/twist around the
+// aim direction isn't necessarily consistent across different target
+// directions (eating vs gesture vs a fixed table point), so a fixed
+// local offset baked from ONE sampled pose drifted out of alignment
+// whenever the wrist later sat at a different roll than the moment it
+// was sampled at - reported directly, with screenshots showing an
+// inconsistent fork angle across different poses/tables even after
+// changing WHICH pose got sampled a couple of times. Recomputing from the
+// actual current wrist/gripFinger world positions every frame sidesteps
+// the inconsistency entirely instead of chasing it with a better sample.
+function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R') {
+  const wrist = scene.getObjectByName(`wrist${side}`);
+  const gripFinger = scene.getObjectByName(`finger3-1${side}`);
+  const fork = wrist?.getObjectByName(HELD_FORK_NAME);
+  if (!wrist || !gripFinger || !fork) return;
+
+  const wristPos = new THREE.Vector3();
+  const gripFingerPos = new THREE.Vector3();
+  wrist.getWorldPosition(wristPos);
+  gripFinger.getWorldPosition(gripFingerPos);
+  const rawZAxis = gripFingerPos.clone().sub(wristPos).normalize();
+  // A real grip's exit angle out of a closed fist is roughly constant
+  // relative to the palm, however the arm itself happens to be angled -
+  // but aligning the fork straight to raw wrist->knuckle tracks the ARM's
+  // angle directly, so whenever the arm reached down toward a table-
+  // height target (a plate, or a fixed on-table hand target) the fork
+  // pointed almost straight down out of the fist, like a blade rather
+  // than a held utensil ("как у россомахи" - like Wolverine's claws).
+  // Damping the vertical component keeps the fork closer to a natural
+  // forward-diagonal angle regardless of how steeply the arm is reaching.
+  const zAxis = new THREE.Vector3(rawZAxis.x, rawZAxis.y * 0.35, rawZAxis.z).normalize();
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
+  const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
+  const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+  const desiredWorldQuat = new THREE.Quaternion().setFromRotationMatrix(basis);
+  const wristWorldQuat = new THREE.Quaternion();
+  wrist.getWorldQuaternion(wristWorldQuat);
+  fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
+
+  // Extends past the curled fingertips (not just to their base), so the
+  // handle actually crosses through the closed grip instead of stopping
+  // short of it - see the fork-attachment block's own comment for the
+  // 0.14 tuning.
+  const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.14)).add(yAxis.clone().multiplyScalar(0.01));
+  fork.position.copy(wrist.worldToLocal(desiredWorldPos));
 }
 
 /**
@@ -1260,92 +1312,15 @@ export function SeatedPose({
           applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(24), 0, 0);
           applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(20), 0, 0);
 
-          // Placed via world-space directions, not a guessed local Euler/
-          // position on the wrist bone itself - this rig's bones (see
-          // aimBoneAt's own comment above) carry unpredictable twists in
-          // their own rest orientation, so a guessed local offset landed
-          // the fork somewhere inside the fist/forearm rather than
-          // visibly held (reported directly - no fork visible in hand
-          // despite the console confirming it WAS attached). Building an
-          // explicit world-space basis first and converting into the
-          // wrist's local space sidesteps that the same way aimBoneAt
-          // itself does for rotations.
-          //
-          // The pointing axis is measured wrist -> middle-finger base, not
-          // wrist -> elbow: the forearm's own direction doesn't account for
-          // whatever rotation the wrist bone itself carries (this rig's
-          // wrists aren't just a straight continuation of the forearm), so
-          // aiming the fork along the forearm left it angled back toward
-          // the wrist instead of out along the curled fingers where the
-          // grip above actually closes (reported directly - "the fork
-          // should be between the fingers, but now it's folded back into
-          // the hand"). A finger's own base joint doesn't move when that
-          // finger curls (only its rotation does), so this stays a stable,
-          // curl-independent read of which way the hand itself is facing.
-          //
-          // For an activity-based fork (not `holdsFork`, which reuses a
-          // `target` the earlier block already aimed the wrist at for
-          // good), the wrist right now is still sitting in the generic
-          // thigh-rest pose from earlier in this same one-time block - the
-          // per-frame activity loop that actually aims it at the eating/
-          // gesture/listen target hasn't run yet this frame. Baking the
-          // fork's rigid offset against that unrelated rest orientation
-          // left it reading as twisted/sideways once the wrist rotated to
-          // its real pose afterward (reported directly, with screenshots -
-          // forks sticking out at odd angles). Pre-aims at a representative
-          // pose first, purely to sample that orientation; the real
-          // per-frame loop right after this block overwrites the aim
-          // again anyway, using actual elapsed time, before any of this
-          // ever paints. t=0 (blend=0 - see the 'eating' branch above)
-          // samples the fork reaching down INTO the plate, not lifted to
-          // the mouth - matches a reference screenshot of the natural
-          // angle wanted, and this is also the pose a 'listen'-role or
-          // between-bites hand rests in most of the time anyway (the
-          // lift-to-mouth portion of the cycle is the shorter part of it).
-          if (isActivityFork) {
-            const plateTarget = computeActivityTarget(scene, forward, 'eating', 0);
-            if (plateTarget) aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, plateTarget);
-          }
-          const wristPos = new THREE.Vector3();
-          const gripFingerPos = new THREE.Vector3();
-          wrist.getWorldPosition(wristPos);
-          gripFinger.getWorldPosition(gripFingerPos);
-          const rawZAxis = gripFingerPos.clone().sub(wristPos).normalize();
-          // A real grip's exit angle out of a closed fist is roughly
-          // constant relative to the palm, however the arm itself happens
-          // to be angled - but aligning the fork straight to raw
-          // wrist->knuckle tracks the ARM's angle directly, so whenever
-          // the arm reached down toward a table-height target (a plate,
-          // or table1's on-table hand target) the fork pointed almost
-          // straight down out of the fist, like a blade rather than a
-          // held utensil (reported directly, with screenshots - "как у
-          // россомахи", like Wolverine's claws). Damping the vertical
-          // component keeps the fork closer to a natural forward-diagonal
-          // angle regardless of how steeply the arm itself is reaching -
-          // an approximation of a fixed grip angle, not a measurement.
-          const zAxis = new THREE.Vector3(rawZAxis.x, rawZAxis.y * 0.35, rawZAxis.z).normalize();
-          const worldUp = new THREE.Vector3(0, 1, 0);
-          const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
-          const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
-          const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
-          const desiredWorldQuat = new THREE.Quaternion().setFromRotationMatrix(basis);
-          const wristWorldQuat = new THREE.Quaternion();
-          wrist.getWorldQuaternion(wristWorldQuat);
-
+          // Built and parented once - the actual pose (position and
+          // orientation, both dependent on the current wrist/gripFinger
+          // world transform) is computed fresh every frame instead, by
+          // updateHeldForkPose below, right after this block runs for the
+          // first time and every frame after via the per-frame activity
+          // loop.
           const fork = buildForkProp();
-          fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
-          // Extends past the curled fingertips (not just to their base),
-          // so the handle actually crosses through the closed grip instead
-          // of stopping short of it. Was 0.1 - the fork's own origin sits
-          // near the handle's far end (close to the head/tines, not the
-          // grip end - see buildForkProp), so 0.1 out from the wrist put
-          // the actual grip portion back around the base knuckles/palm,
-          // reading as held too far back in the fist instead of where the
-          // curled FAR phalanges (fingertips) actually close around it
-          // (reported directly, with a screenshot). Pushed further out.
-          const desiredWorldPos = wristPos.clone().add(zAxis.clone().multiplyScalar(0.14)).add(yAxis.clone().multiplyScalar(0.01));
-          fork.position.copy(wrist.worldToLocal(desiredWorldPos));
           wrist.add(fork);
+          updateHeldForkPose(scene, side);
         }
       }
       posed.current = true;
@@ -1391,20 +1366,32 @@ export function SeatedPose({
           } else if (side === 'R' && !override?.target && role) {
             rawTarget = computeConversationArmTarget(scene, forward, role, activityTime);
           }
-          if (!rawTarget) continue;
-          // Ease toward rawTarget instead of snapping straight to it - see
-          // ARM_TARGET_EASE_RATE's own comment.
-          let smoothed = armTargetSmoothState.get(scene);
-          if (!smoothed) {
-            smoothed = {};
-            armTargetSmoothState.set(scene, smoothed);
+          if (rawTarget) {
+            // Ease toward rawTarget instead of snapping straight to it -
+            // see ARM_TARGET_EASE_RATE's own comment.
+            let smoothed = armTargetSmoothState.get(scene);
+            if (!smoothed) {
+              smoothed = {};
+              armTargetSmoothState.set(scene, smoothed);
+            }
+            if (!smoothed[side]) {
+              smoothed[side] = rawTarget.clone();
+            } else {
+              smoothed[side]!.lerp(rawTarget, 1 - Math.exp(-ARM_TARGET_EASE_RATE * armDelta));
+            }
+            aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, smoothed[side]!);
           }
-          if (!smoothed[side]) {
-            smoothed[side] = rawTarget.clone();
-          } else {
-            smoothed[side]!.lerp(rawTarget, 1 - Math.exp(-ARM_TARGET_EASE_RATE * armDelta));
+          // A held fork's pose depends on the wrist's CURRENT world
+          // transform (see updateHeldForkPose's own comment for why this
+          // has to be live, not baked once) - runs regardless of whether
+          // this side's arm target moved this frame, since a `target`-
+          // based `holdsFork` hand (never touched by the block above)
+          // still needs it just as much as an activity-based one.
+          const dynamicRoleEats =
+            side === 'R' && !override?.activity && !override?.target && !!conversation && conversation.peers.length >= 3;
+          if (override?.activity === 'eating' || dynamicRoleEats || override?.holdsFork) {
+            updateHeldForkPose(scene, side);
           }
-          aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, smoothed[side]!);
         }
       }
     }
