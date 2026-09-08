@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Text } from '@react-three/drei';
 
 /**
  * A small neighbourhood cafe interior - built from plain primitives, same
@@ -164,6 +165,16 @@ function FoodPlate({ position }: { position: [number, number, number] }) {
   );
 }
 
+// Was a plain bar (a shelf of empty cups) - requested directly: make it
+// read as an order counter instead, somewhere to walk up, see a menu and
+// notice a couple of dishes on display, not a place serving drinks.
+// Swapped the row of cups for a standing chalkboard-style menu sign (with
+// its own small easel legs, not just floating) plus two FoodPlate props
+// reused as-is from the regular tables - the actual menu TEXT lives in
+// the HTML overlay CafeScene shows when the player walks up (see
+// CounterProximityWatcher and cafe.menu.* in translations.ts there), not
+// on this sign; the sign's own "MENU" label is just enough to read as a
+// menu board from a distance.
 function Counter({ position }: { position: [number, number, number] }) {
   return (
     <group position={position}>
@@ -175,12 +186,30 @@ function Counter({ position }: { position: [number, number, number] }) {
         <boxGeometry args={[4.3, 0.05, 0.66]} />
         <meshStandardMaterial color="#6b4a30" roughness={0.35} />
       </mesh>
-      {[-1.4, 0, 1.4].map((x, i) => (
-        <mesh key={i} position={[x, 1.3, -0.05]} castShadow>
-          <cylinderGeometry args={[0.09, 0.11, 0.3, 12]} />
-          <meshStandardMaterial color="#caa46a" roughness={0.5} />
+      <group position={[0, 1.145, -0.1]}>
+        {[-0.28, 0.28].map((dx, i) => (
+          <mesh key={i} position={[dx, 0.16, 0]} castShadow>
+            <boxGeometry args={[0.03, 0.32, 0.03]} />
+            <meshStandardMaterial color="#241f1c" roughness={0.5} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0.5, 0]} rotation={[-0.08, 0, 0]} castShadow>
+          <boxGeometry args={[0.9, 0.55, 0.035]} />
+          <meshStandardMaterial color="#241f1c" roughness={0.7} />
         </mesh>
-      ))}
+        <Text
+          position={[0, 0.5, 0.019]}
+          rotation={[-0.08, 0, 0]}
+          fontSize={0.11}
+          color="#e8ddc8"
+          anchorX="center"
+          anchorY="middle"
+        >
+          MENU
+        </Text>
+      </group>
+      <FoodPlate position={[-1.3, 1.145, -0.05]} />
+      <FoodPlate position={[1.3, 1.145, -0.05]} />
     </group>
   );
 }

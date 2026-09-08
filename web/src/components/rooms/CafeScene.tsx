@@ -1,5 +1,5 @@
-import { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { CafeEnvironment } from './CafeEnvironment';
 import { NpcAvatar, type NpcConfig } from './NpcAvatar';
 import { PlayerControls, type RoomBounds } from './PlayerControls';
@@ -167,6 +167,53 @@ const NPCS: NpcConfig[] = [
 
 const BOUNDS: RoomBounds = { minX: -4.5, maxX: 4.5, minZ: -5, maxZ: 3.2 };
 
+// Requested directly: the counter should read as a place to walk up to,
+// look at a menu and see some dishes, not a bar - see CafeEnvironment.tsx
+// for the visual side (a standing menu sign + a couple of FoodPlate props
+// instead of a row of cups). This is the "walk up and see the menu" half
+// of that - a rectangular trigger zone in front of the counter's actual
+// footprint (position [-2.8,0,-5.05], 4.2 wide x 0.6 deep - see Counter's
+// own geometry), not just a plain radius, since the counter is a long
+// straight bar and a circular trigger would either miss the ends or
+// trigger from behind it.
+const COUNTER_X = -2.8;
+const COUNTER_HALF_WIDTH = 2.3; // 4.2 wide counter, plus a little margin
+const COUNTER_FRONT_Z = -4.75; // front face - counter center z=-5.05 + half depth 0.3
+const COUNTER_TRIGGER_DEPTH = 1.6; // how far out into the room "near" extends
+function isNearCounter(x: number, z: number) {
+  return (
+    Math.abs(x - COUNTER_X) < COUNTER_HALF_WIDTH &&
+    z > COUNTER_FRONT_Z - 0.1 &&
+    z < COUNTER_FRONT_Z + COUNTER_TRIGGER_DEPTH
+  );
+}
+
+// Menu shown in cafe.menu.item1..6 name/desc - kept here as a plain
+// count rather than duplicating the item text in TS, since the actual
+// copy only exists in translations.ts (bilingual) and this component
+// only needs to know how many entries to render.
+const MENU_ITEM_COUNT = 6;
+
+/** Lives inside <Canvas> purely to read the live camera (player) position
+ * every frame via useThree/useFrame - PlayerControls doesn't expose its
+ * internal position outside the canvas, but the camera IS the player
+ * position, and that's already shared R3F state. Calls back up to
+ * CafeScene's own React state only on actual enter/exit transitions, not
+ * every frame, so it doesn't force a re-render while just walking around
+ * elsewhere in the room. */
+function CounterProximityWatcher({ onNearChange }: { onNearChange: (near: boolean) => void }) {
+  const { camera } = useThree();
+  const wasNear = useRef(false);
+  useFrame(() => {
+    const near = isNearCounter(camera.position.x, camera.position.z);
+    if (near !== wasNear.current) {
+      wasNear.current = near;
+      onNearChange(near);
+    }
+  });
+  return null;
+}
+
 /**
  * Exposure-practice cafe: a place people with EDs often avoid (eating in
  * public, being around others while eating). Entirely separate from the
@@ -178,6 +225,7 @@ const BOUNDS: RoomBounds = { minX: -4.5, maxX: 4.5, minZ: -5, maxZ: 3.2 };
  */
 export function CafeScene() {
   const { t } = useLanguage();
+  const [nearCounter, setNearCounter] = useState(false);
   return (
     <>
       <SceneLoader label={t('loading.room')} />
@@ -198,7 +246,25 @@ export function CafeScene() {
           ))}
         </Suspense>
         <PlayerControls start={[0, 2.6]} startYaw={0} bounds={BOUNDS} />
+        <CounterProximityWatcher onNearChange={setNearCounter} />
       </Canvas>
+      {/* Plain HTML overlay, same pattern SceneLoader already uses (a
+          sibling of <Canvas> inside the same position:relative
+          .scene-pane, not a 3D-anchored drei <Html>) - requested
+          directly: walk up to the counter and see a menu. */}
+      {nearCounter && (
+        <div className="cafe-menu">
+          <h2 className="cafe-menu__title">{t('cafe.menu.title')}</h2>
+          <ul className="cafe-menu__list">
+            {Array.from({ length: MENU_ITEM_COUNT }, (_, i) => i + 1).map((n) => (
+              <li key={n} className="cafe-menu__item">
+                <span className="cafe-menu__item-name">{t(`cafe.menu.item${n}.name`)}</span>
+                <span className="cafe-menu__item-desc">{t(`cafe.menu.item${n}.desc`)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </>
   );
 }

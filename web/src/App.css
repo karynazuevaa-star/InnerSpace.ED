@@ -1396,3 +1396,64 @@ input[type='range']::-moz-range-thumb {
   border-radius: 999px;
   padding: 8px 14px;
 }
+
+/* Shown while the player is near the cafe's counter (see
+   CafeScene.tsx's CounterProximityWatcher) - same sibling-of-<Canvas>
+   overlay pattern as .scene-loader/.room-overlay, not a 3D-anchored
+   drei <Html>. */
+.cafe-menu {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, calc(100% - 40px));
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  background: rgba(10, 10, 14, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  color: var(--text);
+  z-index: 5;
+}
+
+.cafe-menu__title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cafe-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cafe-menu__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.cafe-menu__item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.cafe-menu__item-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cafe-menu__item-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+}
