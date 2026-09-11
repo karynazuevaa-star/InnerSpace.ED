@@ -10,19 +10,19 @@ export const translations: Record<Lang, Record<string, string>> = {
     'nav.materials': 'Материалы',
     'nav.tests': 'Тесты',
 
-    'landing.eyebrow': 'Часть эко-системы InnerSpace',
+    'landing.eyebrow': 'Часть экосистемы InnerSpace',
     'landing.lead':
       'Инструмент, созданный клиническими психологами, для терапевтической работы с образом тела при расстройствах пищевого поведения.',
     'landing.cta': 'Исследовать сайт',
     'landing.disclaimer':
-      'Инструмент предназначен для использования вместе со специалистом, а не для самостоятельной неконтролируемой работы.',
+      'Инструмент предназначен для использования вместе со специалистом, а не для самостоятельной работы без сопровождения.',
     'landing.disclaimerPrivacy':
-      'InnerSpace.ED не собирает и не хранит данные и не несёт ответственности за сессии, которые специалисты проводят с использованием этого инструмента.',
+      'InnerSpace.ED не собирает и не хранит данные, а также не несёт ответственности за сессии, которые специалисты проводят с помощью этого инструмента.',
     'landing.modelCredit':
       'Модели Bathroom scale, Kettlebell и Dumbbell от Poly by Google, Salad Bowl от Jarlan Perez, лицензия CC BY.',
 
-    'tour.avatarCaption': 'Место, где можно работать с образом тела через виртуального аватара.',
-    'tour.roomsCaption': 'Место для экспозиционной практики - кафе, бассейн, спортзал.',
+    'tour.avatarCaption': 'Место, где можно работать с образом тела с помощью виртуального аватара.',
+    'tour.roomsCaption': 'Место для градуированной экспозиции - кафе, бассейн, спортзал.',
     'tour.materialsCaption': 'Упражнения, скрининги и психообразование.',
     'tour.testsCaption': 'Тесты на тревогу и симптомы РПП.',
     'tour.next': 'Далее',
@@ -84,7 +84,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'gaze.recalibrate': 'Перекалибровать',
     'gaze.denied': 'Не удалось получить доступ к камере.',
 
-    'calibration.hint': 'Смотрите на точку и кликните по ней {n} раз. Так же для остальных {m}.',
+    'calibration.hint': 'Смотрите на точку и кликните по ней {n} раз, затем повторите для остальных {m}.',
     'calibration.done': 'Готово…',
     'calibration.pointLabel': 'Точка калибровки {i}',
 
@@ -96,9 +96,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     'loading.room': 'Собираем локацию…',
 
     'rooms.heading': 'Локации',
-    'rooms.intro': 'Места, которых люди с РПП часто избегают - кафе, бассейн, спортзал - здесь можно потренироваться находиться в них в безопасной обстановке, среди аватаров разных типов телосложения.',
+    'rooms.intro': 'Места, которых люди с РПП часто избегают - кафе, бассейн, спортзал. Здесь можно практиковать градуированную экспозицию: постепенно, в безопасной обстановке, среди аватаров разных типов телосложения.',
     'rooms.cafe.title': 'Кафе',
-    'rooms.cafe.description': 'Небольшое кафе с посетителями за столиками - тренировка нахождения рядом с едой и другими людьми.',
+    'rooms.cafe.description': 'Небольшое кафе с посетителями за столиками - можно тренироваться находиться рядом с едой и другими людьми.',
     'rooms.pool.title': 'Бассейн',
     'rooms.pool.description': 'Бассейн с людьми разных типов телосложения в купальниках.',
     'rooms.gym.title': 'Спортзал',
@@ -132,7 +132,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'cafe.guide.step14': 'Почему именно этот?',
     'cafe.guide.step15': 'Каково быть среди тех, кто ест?',
     'cafe.guide.step16': 'Как вам кажется, сколько из них сейчас смотрят на вас?',
-    'cafe.guide.step17': 'Проверьте - посмотрите, что на самом деле.',
+    'cafe.guide.step17': 'Проверьте: посмотрите, что происходит на самом деле.',
     'cafe.guide.step18': 'Какую еду вам хотелось бы съесть?',
     'cafe.guide.step19': 'Сравните с меню - что похоже?',
     'cafe.guide.step20': 'Закажите - можно начать с кофе.',
@@ -175,7 +175,7 @@ export const translations: Record<Lang, Record<string, string>> = {
       'Bathroom scale, Kettlebell and Dumbbell models by Poly by Google, Salad Bowl by Jarlan Perez, licensed CC BY.',
 
     'tour.avatarCaption': 'A place to work with body image through a virtual avatar.',
-    'tour.roomsCaption': 'A place for exposure practice - a cafe, a pool, a gym.',
+    'tour.roomsCaption': 'A place for graduated exposure - a cafe, a pool, a gym.',
     'tour.materialsCaption': 'Exercises, screenings and psychoeducation.',
     'tour.testsCaption': 'Tests for anxiety and ED symptoms.',
     'tour.next': 'Next',
@@ -249,7 +249,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'loading.room': 'Building the room…',
 
     'rooms.heading': 'Rooms',
-    'rooms.intro': 'Places people with EDs often avoid - a cafe, a pool, a gym - to practice being in, safely, surrounded by avatars of different body types.',
+    'rooms.intro': 'Places people with EDs often avoid - a cafe, a pool, a gym. A space to practice graduated exposure: step by step, safely, surrounded by avatars of different body types.',
     'rooms.cafe.title': 'Cafe',
     'rooms.cafe.description': 'A small cafe with people at the tables - practice being around food and others.',
     'rooms.pool.title': 'Pool',
