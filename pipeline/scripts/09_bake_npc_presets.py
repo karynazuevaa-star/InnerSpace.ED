@@ -808,7 +808,17 @@ MANUAL_HEM_FIX_ITEMS = {"knitted_sweater"}
 # this item's initial T-pose fit gives it more slack to still clear the
 # body once posed, without the blanket increase the sibling project's own
 # testing already found ineffective/risky for thin-trim geometry generally.
-OUTFIT_CLEARANCE_OVERRIDE = {"male_casualsuit": 0.008}
+#
+# mindfront_dress_01 (npc_asian_dress): same category, this time at the
+# hip - reported directly, with a screenshot of the cafe's seated pose:
+# the seated hip bend (SEATED_LEG_BONES in idleAnimation.tsx swings the
+# thigh forward ~90deg) pulls the dress fabric away from the hip/thigh
+# further than the T-pose fit anticipated, showing as an actual gap/hole
+# rather than just thin skin showing through a seam. Doubled clearance,
+# same magnitude as the casualsuit fix above, as a first attempt - a
+# one-piece dress flexing over a bent hip plausibly needs at least as much
+# slack as a shirt's underarm seam did.
+OUTFIT_CLEARANCE_OVERRIDE = {"male_casualsuit": 0.008, "mindfront_dress_01": 0.008}
 
 # Ported as-is from the sibling project's mpfb-assemble-character-
 # experimental.py, along with push_clothes_outward and

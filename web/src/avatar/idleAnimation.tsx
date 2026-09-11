@@ -253,7 +253,6 @@ function aimBoneAtPointExact(
   endBoneName: string,
   targetWorldPos: THREE.Vector3,
 ) {
-  aimBoneAtPoint(scene, boneName, fromBoneName, endBoneName, targetWorldPos);
   const endBone = scene.getObjectByName(endBoneName);
   if (!endBone || !endBone.parent) return;
 
@@ -262,8 +261,19 @@ function aimBoneAtPointExact(
     rest = endBone.position.clone();
     reachRestPosition.set(endBone, rest);
   }
+  // Reset to the clean rest position BEFORE aiming (not after) - aimBoneAt
+  // measures its current direction from this end bone's live world
+  // position, so aiming while it still held last frame's stretch
+  // correction fed that correction back into itself every frame. Under
+  // continuous small perturbation (SeatedPose's breathing bob moves the
+  // whole arm chain every frame) that self-reference walked the resting
+  // hand back and forth across the MAX_REACH_CORRECTION_METERS clamp,
+  // reading as a visible jitter - reported directly, only on a
+  // gestureWhileSpeaking hand while resting (the speaking side uses the
+  // non-exact aimBoneAtPoint and never hit this).
   endBone.position.copy(rest);
   endBone.updateMatrixWorld(true);
+  aimBoneAtPoint(scene, boneName, fromBoneName, endBoneName, targetWorldPos);
   const naturalPos = new THREE.Vector3();
   endBone.getWorldPosition(naturalPos);
   const worldError = targetWorldPos.clone().sub(naturalPos);
@@ -289,11 +299,67 @@ function aimBoneAtPointExact(
 // turned out to carry unpredictable twists in their own rest orientation
 // (see aimBoneAt's own comment above), so a guessed local rotation would
 // have been just as likely to turn the palm the wrong way.
-function aimPalmNormal(scene: THREE.Object3D, side: 'L' | 'R', desiredWorldNormal: THREE.Vector3) {
+// A hand resting flat on the table (the fixed-point handhold pose below,
+// and the activity/role-based "listening" rest target further down) needs
+// its palm forced to face down and its fingers gently curled - without
+// this the hand just keeps whatever orientation the forearm's aim-at
+// rotation happened to leave the wrist in, which on some rigs points the
+// fingers down INTO the tabletop instead of resting flat on it (reported
+// directly, with a screenshot, for the role-based listen pose specifically
+// - the fixed-point handhold pose already called this, but the
+// per-frame-recomputed listen target never did). See aimPalmNormal's own
+// comment for why this needs measuring the hand's actual current geometry
+// rather than guessing a local rotation.
+// `blend` (0..1, default 1 - full pose) lets a caller EASE into/out of this
+// pose over several frames instead of snapping the wrist straight from
+// "however the gesture pose left it" to "flat palm-down" the instant a
+// hand switches between the two (e.g. tiered_dress's target hand
+// gesturing on her own speaking turn, then resting again - reported
+// directly that the switch itself read as an abrupt flip, "странно
+// выглядит", even though the ARM's position already eased smoothly
+// between the two targets). At blend=0 this is a no-op; at blend=1,
+// identical to the old unconditional pose.
+function applyTableRestHandPose(scene: THREE.Object3D, side: 'L' | 'R', blend: number = 1) {
+  aimPalmNormal(scene, side, new THREE.Vector3(0, -1, 0), blend);
+  for (const finger of [2, 3, 4, 5]) {
+    for (const segment of [1, 2, 3]) {
+      applyRel(
+        [scene], restMap, `finger${finger}-${segment}${side}`,
+        THREE.MathUtils.degToRad(HANDHOLD_CURL_DEGREES[segment] * blend), 0, 0,
+      );
+    }
+  }
+  applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(4 * blend), 0, 0);
+  applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(3 * blend), 0, 0);
+}
+
+function aimPalmNormal(scene: THREE.Object3D, side: 'L' | 'R', desiredWorldNormal: THREE.Vector3, blend: number = 1) {
   const wrist = scene.getObjectByName(`wrist${side}`);
   const thumbBase = scene.getObjectByName(`finger1-1${side}`);
   const pinkyBase = scene.getObjectByName(`finger5-1${side}`);
   if (!wrist || !thumbBase || !pinkyBase || !wrist.parent) return;
+
+  // Reset to the captured bind-pose quaternion BEFORE measuring - this
+  // function used to premultiply its own delta onto whatever wrist.
+  // quaternion already held, with no reset, so "current palm normal"
+  // (measured below from thumbBase/pinkyBase, both children of wrist) was
+  // read from a state that was itself this same function's own prior
+  // output, every single frame it runs (which, thanks to blendState's own
+  // asymptotic ease, is continuously for many seconds on either side of a
+  // speak/rest transition, not just a brief window). Same self-reference
+  // bug aimBoneAtPointExact had for the end bone's POSITION (see its own
+  // comment) - reported directly as a visible tremor in a resting hand,
+  // worst right at the transition. `restMap` already captures every arm/
+  // wrist bone's bind-pose quaternion (primeIdleAnimationRestPose, see its
+  // own comment) - reusing it here the same way applyRel already does
+  // (`bone.quaternion.copy(rest)...`) makes each frame's correction a
+  // fresh, reproducible computation from a fixed baseline instead of an
+  // ever-compounding delta chasing its own tail.
+  const restWristQuat = restMap.get(scene)?.get(`wrist${side}`);
+  if (restWristQuat) {
+    wrist.quaternion.copy(restWristQuat);
+    wrist.updateMatrixWorld(true);
+  }
 
   const wristPos = new THREE.Vector3();
   const thumbPos = new THREE.Vector3();
@@ -311,7 +377,14 @@ function aimPalmNormal(scene: THREE.Object3D, side: 'L' | 'R', desiredWorldNorma
     ? new THREE.Vector3().crossVectors(acrossPalm, alongPalm).normalize()
     : new THREE.Vector3().crossVectors(alongPalm, acrossPalm).normalize();
 
-  const worldDelta = new THREE.Quaternion().setFromUnitVectors(currentNormal, desiredWorldNormal.clone().normalize());
+  let worldDelta = new THREE.Quaternion().setFromUnitVectors(currentNormal, desiredWorldNormal.clone().normalize());
+  // Partial turn (see this function's own `blend` doc on its caller) -
+  // slerping from identity toward the full palm-down delta by `blend`
+  // instead of applying it all-or-nothing gives the wrist a visible,
+  // gradual turn as the hand lifts/settles, not an instant snap.
+  if (blend < 1) {
+    worldDelta = new THREE.Quaternion().identity().slerp(worldDelta, Math.max(0, blend));
+  }
   const parentWorldQuat = new THREE.Quaternion();
   wrist.parent.getWorldQuaternion(parentWorldQuat);
   const localDelta = parentWorldQuat.clone().invert().multiply(worldDelta).multiply(parentWorldQuat);
@@ -353,6 +426,47 @@ function applyMorphInfluence(scenes: Iterable<THREE.Object3D>, name: string, val
       if (idx !== undefined) mesh.morphTargetInfluences![idx] = value;
     }
   }
+}
+
+// A natural, infrequent blink - random per-character timing (not
+// synchronized across NPCs/the avatar), a quick close-and-reopen rather
+// than a held closure. This was disabled entirely further down (both here
+// and in SeatedPose - see their own old comments) back when the eyes.glb
+// asset was a low-poly, near-flat faceted disc: any partial closure
+// exposed its bare facet edges, since the painted eyeliner only
+// camouflaged them fully open. That asset was later swapped for a proper
+// high-poly rounded eyeball (see 04_assemble_eyes.py's own history - "low-
+// poly... proved unfixable... switched"), which shouldn't have that same
+// facet-exposure problem - re-enabled on that basis, not yet confirmed
+// against a live render.
+const BLINK_INTERVAL_MIN_SECONDS = 2.5;
+const BLINK_INTERVAL_MAX_SECONDS = 6.5;
+const BLINK_DURATION_SECONDS = 0.14;
+const blinkState = new WeakMap<THREE.Object3D, { nextBlinkAt: number; blinkStartedAt: number | null }>();
+
+function nextBlinkDelay(): number {
+  return BLINK_INTERVAL_MIN_SECONDS + Math.random() * (BLINK_INTERVAL_MAX_SECONDS - BLINK_INTERVAL_MIN_SECONDS);
+}
+
+function computeBlinkAmount(scene: THREE.Object3D, t: number): number {
+  let state = blinkState.get(scene);
+  if (!state) {
+    state = { nextBlinkAt: t + nextBlinkDelay(), blinkStartedAt: null };
+    blinkState.set(scene, state);
+  }
+  if (state.blinkStartedAt === null && t >= state.nextBlinkAt) {
+    state.blinkStartedAt = t;
+  }
+  if (state.blinkStartedAt === null) return 0;
+  const progress = (t - state.blinkStartedAt) / BLINK_DURATION_SECONDS;
+  if (progress >= 1) {
+    state.blinkStartedAt = null;
+    state.nextBlinkAt = t + nextBlinkDelay();
+    return 0;
+  }
+  // A quick close then reopen within the short duration, not a linear
+  // snap - peaks fully closed at the midpoint.
+  return Math.sin(progress * Math.PI);
 }
 
 const LEG_WEIGHT_SHIFT_BONES = {
@@ -689,16 +803,14 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
       chestBone.position.y += breathe * 0.016;
     }
 
-    // No blinking: eye_left_closure/eye_right_closure stay at 0 (eyes fully
-    // open) on purpose. The eyes.glb asset is a low-poly, faceted disc with
-    // no real eyelid geometry of its own - the painted eyeliner on the
-    // face skin only camouflages its edges when the eye is fully open. Any
-    // partial closure (blinking) exposes the bare grey facets underneath,
-    // which reads as a broken, googly-eyed look rather than a blink. A
-    // proper fix would need a better eye asset with real eyelid coverage;
-    // until then, not blinking looks far better than blinking badly.
-    applyMorphInfluence(scenes, 'eye_left_closure', 0);
-    applyMorphInfluence(scenes, 'eye_right_closure', 0);
+    // Blinking - see computeBlinkAmount's own comment on why this is
+    // re-enabled now (was hardcoded to 0 here). Per-scene, not shared
+    // across `scenes`, so each character blinks on their own timing.
+    for (const scene of scenes) {
+      const blink = computeBlinkAmount(scene, t);
+      applyMorphInfluence([scene], 'eye_left_closure', blink);
+      applyMorphInfluence([scene], 'eye_right_closure', blink);
+    }
   });
 
   return null;
@@ -762,6 +874,23 @@ export interface SeatedArmOverride {
    * `target` hand (a fixed table-resting point) that should still read as
    * holding something, like the couple at table1's non-handhold hand. */
   holdsFork?: boolean;
+  /** Only meaningful alongside `activity: 'phone'` - attaches a small
+   * visible phone prop to this hand (see the phone-attachment block in
+   * SeatedPose), the same opt-in idea as `holdsFork`. Off by default: the
+   * 'phone' pose itself is just a hand held up near the face, no prop -
+   * requested directly for one specific solo seat, not every phone pose
+   * at once. */
+  holdsPhone?: boolean;
+  /** Only meaningful alongside `target`, and only on the right arm (the
+   * one `conversation` drives) - lets this fixed resting point ALSO swap
+   * to the gesture pose while this NPC is the one speaking, easing back
+   * to the static `target` once it isn't, instead of staying frozen
+   * through the whole conversation. Off by default: table1's own
+   * `target`-based hands are deliberately always static (they're a
+   * handhold - either one swapping to gesture mid-conversation would
+   * break the pose they're meant to hold), so this needs an explicit
+   * opt-in rather than applying to every `target` automatically. */
+  gestureWhileSpeaking?: boolean;
 }
 
 /**
@@ -782,6 +911,26 @@ export interface SeatedArmOverride {
 export interface ConversationConfig {
   peers: [number, number][];
   selfIndex: number;
+  /** World XZ center and radius of the shared table this conversation
+   * sits at - lets the listen/eat-rest hand target (see
+   * computeTableEdgePoint) land on the table's actual surface instead of
+   * a purely head-relative guess that has no idea where the table's own
+   * boundary is. Optional: table1's conversations never drive the arms at
+   * all (both seats there use fixed handhold `target`s instead of the
+   * role-based rest pose), so they don't need it. */
+  tableCenter?: [number, number];
+  tableRadius?: number;
+  /** Per-SEAT override of TABLE_EDGE_MARGIN_METERS's default inset - for
+   * one specific character whose own arm falls a little short of that
+   * shared default, landing the hand just short of the table instead of
+   * on it (reported directly, with a screenshot). Deliberately scoped to
+   * one entry of the group (not the shared `table` a whole
+   * conversationGroup() call sets), the same way this file already gives
+   * lace_ruffle's own handhold point a character-specific pull-in rather
+   * than moving the shared point everyone reaches for - a fix for one
+   * rig's proportions shouldn't change where every other seat's hand
+   * lands. */
+  tableEdgeMargin?: number;
 }
 
 // One speaking/listening/eating turn, in seconds - long enough that the
@@ -844,6 +993,53 @@ const HEAD_TURN_SPRING_DAMPING = 1;
 const ARM_TARGET_EASE_RATE = 2.2;
 const armTargetSmoothState = new WeakMap<THREE.Object3D, Partial<Record<'L' | 'R', THREE.Vector3>>>();
 
+// Same ease as ARM_TARGET_EASE_RATE, but for applyTableRestHandPose's
+// palm-down/curl `blend` - tracked separately from the arm's own position
+// target so the wrist's turn and the hand's overall travel settle on the
+// same timescale without one driving the other directly.
+const palmRestBlendState = new WeakMap<THREE.Object3D, Partial<Record<'L' | 'R', number>>>();
+
+// How far inside a table's own edge a resting/near-plate hand target sits,
+// in meters. Table radii here run 0.42-0.55m, so 0.12m lands comfortably
+// on the surface without reading as "reaching into the middle of the
+// table" on the smallest one.
+const TABLE_EDGE_MARGIN_METERS = 0.12;
+
+// The near side of the table (inset by TABLE_EDGE_MARGIN_METERS), on the
+// straight line between this character's own head and the table center -
+// used instead of a head-relative offset (EATING_PLATE_OFFSET's old job)
+// for any seat whose table geometry is known. That offset had no idea
+// where the table's actual boundary was, so depending on a given
+// character's own head/arm proportions the same fixed offset could land
+// right at, past, or well short of a table's rim - every attempt to patch
+// that at the IK-correction end instead (clamping how far the hand's
+// aim-correction could stretch or compress to reach it, splitting that
+// budget by axis, skipping compression outright) either left the hand
+// clipping through the table's edge or bent the arm into a visibly wrong
+// shape trying to close a gap that was really a bad target to begin with
+// (reported directly, more than once, with screenshots of each). Landing
+// this point ON the table in the first place needs none of that - the
+// small stretch/compress clamp aimBoneAtPointExact still applies is only
+// ever closing a few cm of normal per-rig variance now, not compensating
+// for a guess that was off by a lot more.
+function computeTableEdgePoint(
+  headPos: THREE.Vector3,
+  tableCenter: [number, number],
+  tableRadius: number,
+  y: number,
+  edgeMargin: number = TABLE_EDGE_MARGIN_METERS,
+): THREE.Vector3 {
+  const dx = headPos.x - tableCenter[0];
+  const dz = headPos.z - tableCenter[1];
+  const dist = Math.hypot(dx, dz) || 1;
+  const inset = Math.max(0, tableRadius - edgeMargin);
+  return new THREE.Vector3(
+    tableCenter[0] + (dx / dist) * inset,
+    y,
+    tableCenter[1] + (dz / dist) * inset,
+  );
+}
+
 /**
  * A third role layered on top of the plain speak/listen split above,
  * requested directly: "говорит - слушает - ест ... чередовать" (with a
@@ -880,18 +1076,66 @@ function computeConversationArmTarget(
   forward: THREE.Vector3,
   role: ConversationRole,
   t: number,
+  conversation: ConversationConfig,
 ): THREE.Vector3 | null {
   if (role === 'speak') return computeActivityTarget(scene, forward, 'gesture', t);
-  if (role === 'eat') return computeActivityTarget(scene, forward, 'eating', t);
+  if (role === 'eat') {
+    return computeActivityTarget(
+      scene, forward, 'eating', t, conversation.tableCenter, conversation.tableRadius, conversation.tableEdgeMargin,
+    );
+  }
+  return computeListenRestTarget(
+    scene, forward, conversation.tableCenter, conversation.tableRadius, conversation.tableEdgeMargin,
+  );
+}
+
+// Extracted out of computeConversationArmTarget's own 'listen' branch (see
+// its comment above) so a seat WITH a static `activity` override - not just
+// the no-override conversation-role rotation - can also drop into this same
+// hand-on-the-table pose while listening, instead of only ever switching
+// between its own activity and 'gesture' (see the isSpeaking branch in
+// SeatedPose). polka_skirt's phone hand in particular stayed held up at
+// chest height through her own listening/nodding turns too - reported
+// directly, with a screenshot - since 'phone' had no listening-specific
+// state of its own to fall back to.
+function computeListenRestTarget(
+  scene: THREE.Object3D,
+  forward: THREE.Vector3,
+  tableCenter?: [number, number],
+  tableRadius?: number,
+  tableEdgeMargin?: number,
+): THREE.Vector3 | null {
   const head = scene.getObjectByName('head');
   if (!head) return null;
   const headPos = new THREE.Vector3();
   head.getWorldPosition(headPos);
+  if (tableCenter && tableRadius !== undefined) {
+    return computeTableEdgePoint(headPos, tableCenter, tableRadius, CONVERSATION_LISTEN_MIN_HAND_HEIGHT, tableEdgeMargin);
+  }
+  // No known table (table1's conversations never reach this - see
+  // ConversationConfig's own comment) - fall back to the old head-relative
+  // guess.
   const UP = new THREE.Vector3(0, 1, 0);
-  return headPos
+  const target = headPos
     .add(forward.clone().multiplyScalar(EATING_PLATE_OFFSET.forward))
     .add(UP.clone().multiplyScalar(EATING_PLATE_OFFSET.up));
+  target.y = Math.max(target.y, CONVERSATION_LISTEN_MIN_HAND_HEIGHT);
+  return target;
 }
+
+// A resting/listening hand target is purely head-relative (see
+// computeConversationArmTarget's 'listen' branch) - fine for a character
+// whose seated head height happens to match whoever EATING_PLATE_OFFSET
+// was tuned against, but for a taller or shorter rig the same offset can
+// land the target below the table's actual top surface (0.74 world Y
+// everywhere - every CafeEnvironment.tsx table shares that height), which
+// reads as the hand/forearm sinking into the tabletop (reported directly,
+// with a screenshot, for table2's casualsuit guy once his right hand
+// started using this listen target). Floors the target just above the
+// surface instead - matches the already-working fixed table-rest targets
+// nearby (TABLE1_HAND_LOWER, TABLE2_CASUALSUIT_LEFT_HAND both sit at
+// 0.785) rather than guessing a new number.
+const CONVERSATION_LISTEN_MIN_HAND_HEIGHT = 0.78;
 
 // Offsets are forward/up from the character's own head position, in
 // meters - tuned by eye against the rig's own proportions, not measured
@@ -943,11 +1187,32 @@ const PHONE_BOB_PERIOD_SECONDS = 2.3;
 const GESTURE_SWAY_METERS = 0.04;
 const GESTURE_SWAY_PERIOD_SECONDS = 1.9;
 
+// Extracted out of computeActivityTarget's own 'eating' branch so SeatedPose
+// can independently tell, from outside that function, whether THIS frame's
+// eating target is sitting down near the plate (blend near 0) rather than
+// up at the mouth - needed to decide when the hand should also get the
+// palm-down/curled-fingers table-rest treatment (see applyTableRestHandPose)
+// without applying it during the lift/chew/lower motion, where it isn't
+// touching the table at all.
+function computeEatingBlend(t: number): number {
+  const phase = t % EATING_PERIOD_SECONDS;
+  if (phase < EATING_LIFT_SECONDS) return THREE.MathUtils.smoothstep(phase / EATING_LIFT_SECONDS, 0, 1);
+  if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS) return 1;
+  if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS + EATING_LOWER_SECONDS) {
+    const lowerPhase = (phase - EATING_LIFT_SECONDS - EATING_CHEW_SECONDS) / EATING_LOWER_SECONDS;
+    return 1 - THREE.MathUtils.smoothstep(lowerPhase, 0, 1);
+  }
+  return 0;
+}
+
 function computeActivityTarget(
   scene: THREE.Object3D,
   forward: THREE.Vector3,
   activity: SeatedArmActivity,
   t: number,
+  tableCenter?: [number, number],
+  tableRadius?: number,
+  tableEdgeMargin?: number,
 ) {
   const head = scene.getObjectByName('head');
   if (!head) return null;
@@ -957,18 +1222,7 @@ function computeActivityTarget(
 
   if (activity === 'eating') {
     const mouth = ARM_ACTIVITY_OFFSETS.eating;
-    const phase = t % EATING_PERIOD_SECONDS;
-    let blend: number;
-    if (phase < EATING_LIFT_SECONDS) {
-      blend = THREE.MathUtils.smoothstep(phase / EATING_LIFT_SECONDS, 0, 1);
-    } else if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS) {
-      blend = 1;
-    } else if (phase < EATING_LIFT_SECONDS + EATING_CHEW_SECONDS + EATING_LOWER_SECONDS) {
-      const lowerPhase = (phase - EATING_LIFT_SECONDS - EATING_CHEW_SECONDS) / EATING_LOWER_SECONDS;
-      blend = 1 - THREE.MathUtils.smoothstep(lowerPhase, 0, 1);
-    } else {
-      blend = 0;
-    }
+    const blend = computeEatingBlend(t);
     // A small wobble around the plate-rest position, faded out by (1 -
     // blend) as the hand lifts toward the mouth - reads as pushing food
     // around the plate between bites instead of the hand freezing dead
@@ -977,9 +1231,31 @@ function computeActivityTarget(
     const stirFade = 1 - blend;
     const stirF = Math.sin(t / 0.85) * 0.03 * stirFade;
     const stirUp = Math.cos(t / 1.15) * 0.02 * stirFade;
-    const f = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.forward, mouth.forward, blend) + stirF;
-    const up = THREE.MathUtils.lerp(EATING_PLATE_OFFSET.up, mouth.up, blend) + stirUp;
-    return headPos.add(forward.clone().multiplyScalar(f)).add(UP.clone().multiplyScalar(up));
+
+    // The near-plate end of the cycle: computeTableEdgePoint when this
+    // seat's table is known (see its own comment for why - the same fix
+    // as computeListenRestTarget), otherwise the old head-relative guess,
+    // floored at table height for a rig whose head sits higher above the
+    // shared 0.74 tabletop than that guess assumed (reported directly,
+    // with a screenshot of a hand sunk into the tabletop next to the
+    // plate).
+    let plateTarget: THREE.Vector3;
+    if (tableCenter && tableRadius !== undefined) {
+      plateTarget = computeTableEdgePoint(headPos, tableCenter, tableRadius, CONVERSATION_LISTEN_MIN_HAND_HEIGHT, tableEdgeMargin)
+        .add(forward.clone().multiplyScalar(stirF))
+        .add(UP.clone().multiplyScalar(stirUp));
+    } else {
+      plateTarget = headPos.clone()
+        .add(forward.clone().multiplyScalar(EATING_PLATE_OFFSET.forward + stirF))
+        .add(UP.clone().multiplyScalar(EATING_PLATE_OFFSET.up + stirUp));
+      plateTarget.y = Math.max(plateTarget.y, CONVERSATION_LISTEN_MIN_HAND_HEIGHT);
+    }
+    // The near-mouth end never needed the table fix (it's up at the face,
+    // nowhere near the table edge) - unchanged, still head-relative.
+    const mouthTarget = headPos.clone()
+      .add(forward.clone().multiplyScalar(mouth.forward))
+      .add(UP.clone().multiplyScalar(mouth.up));
+    return plateTarget.lerp(mouthTarget, blend);
   }
   if (activity === 'phone') {
     const { forward: f, up } = ARM_ACTIVITY_OFFSETS.phone;
@@ -1140,53 +1416,127 @@ function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R', forward: THR
   const wrist = scene.getObjectByName(`wrist${side}`);
   const gripFinger = scene.getObjectByName(`finger3-1${side}`); // middle finger base
   const indexFinger = scene.getObjectByName(`finger2-1${side}`); // index finger base
-  const fork = wrist?.getObjectByName(HELD_FORK_NAME);
+  const fork = scene.getObjectByName(HELD_FORK_NAME);
   if (!wrist || !gripFinger || !indexFinger || !fork) return;
 
   const wristPos = new THREE.Vector3();
+  wrist.getWorldPosition(wristPos);
+  // A real grip's exit angle out of a closed fist is roughly constant
+  // relative to the palm, but every attempt to derive that angle from the
+  // arm/hand's OWN current geometry (raw wrist->knuckle direction; that
+  // direction's horizontal part with a body-forward fallback; the same
+  // again blended by wrist height for the eating animation's mouth-lift
+  // phase) tracked the ARM's angle instead, which changes with every
+  // character's own reach/rig proportions and every activity's target -
+  // producing a visibly different grip per character and per pose
+  // ("wolverine claws" pointing almost straight down for a table-height
+  // reach, almost straight up for lace_ruffle's particular reach geometry,
+  // then inconsistent again once the mouth-lift blend was added, all
+  // reported directly with screenshots each time). Reference screenshots
+  // requested directly (one held fork pose per NPC, close up) settled it:
+  // every character holds the SAME grip angle, unchanged from plate
+  // height up to right in front of the face - a real grip doesn't
+  // re-angle itself as the arm moves, it rotates as a fixed offset WITH
+  // the hand. Dropping the arm-geometry input entirely and using only the
+  // character's own horizontal body-forward (always well-defined, never
+  // reach-dependent) is what actually reproduces that: one fixed
+  // direction and one fixed downward tilt, identical for every hand in
+  // every pose.
+  // Straight body-forward, with no sideways component at all, sits in the
+  // exact same vertical plane as a camera looking at this character from
+  // directly across a conversation table (i.e. along their OWN forward
+  // axis, back toward whoever they're facing) - the single most natural
+  // angle to view two seated people talking, since that's the axis their
+  // chairs are arranged on. A line lying flat within that plane projects
+  // to a purely vertical stroke on screen from that angle NO MATTER its
+  // real 3D tilt (reported directly, with a screenshot from that exact
+  // angle showing the fork reading as vertical while the same code's
+  // over-the-shoulder screenshot, a few degrees off that plane, read
+  // correctly) - not a perspective illusion, a genuine degenerate case.
+  // A real grip is never perfectly in that plane either - the forearm
+  // naturally angles the fork a little across the body, not straight down
+  // the sternum - so yawing horizDir a fixed amount to the side (mirrored
+  // by hand) guarantees it's never exactly camera-plane-aligned from the
+  // one viewing angle that matters most for this room (two people facing
+  // each other across a table), while still reading as one consistent
+  // grip everywhere else.
+  // A fixed downward tilt reads fine at rest (plate/table height, far
+  // below and away from a normal seated-eye-level camera) but the SAME
+  // fixed angle, on the SAME hand once it's lifted up near the face,
+  // consistently read as flat/horizontal instead of diagonal - true for
+  // every character and every camera angle it was checked from (reported
+  // directly, repeatedly, always specifically for a raised hand, never
+  // for a resting one - confirmed NOT a caching artifact by reloading in
+  // a fresh private-browsing window with the exact same result). A fixed
+  // 3D angle does look progressively flatter in a perspective render the
+  // closer the object gets to the camera's own eye level, which is
+  // exactly what lifting a hand toward a seated head does - so countering
+  // it needs an actual angle change, not just direction (the earlier
+  // build-up of side-yaw above already fixed the OTHER bug this looked
+  // tangled up with - a hand exactly in the camera's viewing plane - but
+  // that was a position/plane issue, not a height one, and didn't touch
+  // this). Blends toward tilting UP (toward the mouth) as the wrist
+  // approaches head height, unchanged at table height.
+  const head = scene.getObjectByName('head');
+  let mouthProximity = 0;
+  if (head) {
+    const headPos = new THREE.Vector3();
+    head.getWorldPosition(headPos);
+    const MOUTH_PROXIMITY_RANGE_METERS = 0.35;
+    mouthProximity = THREE.MathUtils.clamp(1 - (headPos.y - wristPos.y) / MOUTH_PROXIMITY_RANGE_METERS, 0, 1);
+  }
+  const FORK_SIDE_YAW_DEGREES = 25;
+  const sideYaw = THREE.MathUtils.degToRad(FORK_SIDE_YAW_DEGREES) * (side === 'R' ? 1 : -1);
+  const cosSideYaw = Math.cos(sideYaw);
+  const sinSideYaw = Math.sin(sideYaw);
+  const horizDir = new THREE.Vector3(
+    forward.x * cosSideYaw - forward.z * sinSideYaw,
+    0,
+    forward.x * sinSideYaw + forward.z * cosSideYaw,
+  ).normalize();
+  const FORK_DOWNTILT_DEGREES = 22;
+  const FORK_UPTILT_DEGREES = 40;
+  const tiltDegrees = THREE.MathUtils.lerp(FORK_DOWNTILT_DEGREES, -FORK_UPTILT_DEGREES, mouthProximity);
+  const tilt = THREE.MathUtils.degToRad(tiltDegrees);
+  const zAxis = horizDir.clone().multiplyScalar(Math.cos(tilt)).add(new THREE.Vector3(0, -Math.sin(tilt), 0)).normalize();
+  // Tried rolling the wrist itself so the curled fingers' own exit
+  // direction matched zAxis exactly (measured, directly: the two can be
+  // 60+ degrees apart for a raised hand) - reverted. It did fix the fork-
+  // to-hand angle mismatch, but at the cost of visibly twisting the wrist
+  // itself into an unnatural bend, and leaving the finger curl looking
+  // like it was gripping something other than the fork now attached to
+  // it (reported directly, comparing a screenshot of the twisted result
+  // against reference shots of the same hand at rest) - trading one
+  // visible problem for two others. Left as a known open mismatch rather
+  // than fought with a wrist rotation the hand itself has to pay for.
   const gripFingerPos = new THREE.Vector3();
   const indexFingerPos = new THREE.Vector3();
-  wrist.getWorldPosition(wristPos);
   gripFinger.getWorldPosition(gripFingerPos);
   indexFinger.getWorldPosition(indexFingerPos);
-  const rawZAxis = gripFingerPos.clone().sub(wristPos).normalize();
-  // A real grip's exit angle out of a closed fist is roughly constant
-  // relative to the palm, however the arm itself happens to be angled -
-  // but aligning the fork straight to raw wrist->knuckle tracks the ARM's
-  // angle directly, so whenever the arm reached down toward a table-
-  // height target (a plate, or a fixed on-table hand target) the fork
-  // pointed almost straight down out of the fist, like a blade rather
-  // than a held utensil ("как у россомахи" - like Wolverine's claws).
-  // Damping the vertical component alone wasn't enough - table1's
-  // lace_ruffle still showed a fork pointing almost straight up
-  // (reported directly, with a screenshot), because HER particular reach
-  // has a raw wrist->knuckle direction that's ALREADY nearly vertical
-  // (tiny x/z to begin with) - damping y down to 35% of a near-1 value
-  // still leaves it dominating over x/z that were never large to start
-  // with. A proportional damp can't rescue a direction with no horizontal
-  // signal left to preserve.
-  //
-  // Rebuilt to not depend on the arm's own angle at all: take the raw
-  // direction's horizontal (XZ-plane) component when it's substantial
-  // enough to trust (the normal case - reaching for a plate, gesturing,
-  // etc.), otherwise fall back to the character's own body-forward
-  // (always well-defined and horizontal) for the edge case where the
-  // reach is nearly vertical. Either way, add one FIXED downward tilt
-  // afterward - not derived from how steep the current reach happens to
-  // be - so the result no longer tracks the arm's own extremes.
-  const rawHoriz = new THREE.Vector3(rawZAxis.x, 0, rawZAxis.z);
-  const horizDir = rawHoriz.length() > 0.3 ? rawHoriz.normalize() : new THREE.Vector3(forward.x, 0, forward.z).normalize();
-  const FORK_DOWNTILT_DEGREES = 22;
-  const tilt = THREE.MathUtils.degToRad(FORK_DOWNTILT_DEGREES);
-  const zAxis = horizDir.clone().multiplyScalar(Math.cos(tilt)).add(new THREE.Vector3(0, -Math.sin(tilt), 0)).normalize();
   const worldUp = new THREE.Vector3(0, 1, 0);
   const yAxis = worldUp.clone().sub(zAxis.clone().multiplyScalar(worldUp.dot(zAxis))).normalize();
   const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
   const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis);
   const desiredWorldQuat = new THREE.Quaternion().setFromRotationMatrix(basis);
-  const wristWorldQuat = new THREE.Quaternion();
-  wrist.getWorldQuaternion(wristWorldQuat);
-  fork.quaternion.copy(wristWorldQuat.clone().invert().multiply(desiredWorldQuat));
+  // Cancelling out against the WRIST's current world rotation (so the fork
+  // ends up at desiredWorldQuat regardless of how the wrist itself is
+  // posed) used to rely on the wrist bone's own quaternion - but that bone
+  // is re-aimed every frame by aimBoneAtPointExact at whatever target this
+  // hand's current activity wants (a nearby, close-to-the-body point for
+  // gesture/eating-lift, unlike a plate/table reach), and a fixed grip
+  // angle still came out visibly wrong for exactly those raised poses
+  // (reported directly, with screenshots, after the direction fix above
+  // had already made every OTHER pose match the requested reference) even
+  // though desiredWorldQuat itself never changes with wrist height. The
+  // wrist's own world rotation is the one part of this a bone-aiming
+  // system doesn't strictly guarantee stays a clean rotation for every
+  // target geometry. The fork is parented to the NPC's own root instead
+  // (see the `scene.add(fork)` above) - a plain, static per-seat rotation
+  // that's never re-aimed - and cancelled against THAT instead, so the
+  // result no longer depends on the wrist bone's current pose at all.
+  const rootWorldQuat = new THREE.Quaternion();
+  scene.getWorldQuaternion(rootWorldQuat);
+  fork.quaternion.copy(rootWorldQuat.clone().invert().multiply(desiredWorldQuat));
 
   // Anchored at the midpoint between the index and middle finger bases,
   // not stretched out from the wrist - reported directly, with
@@ -1199,19 +1549,63 @@ function updateHeldForkPose(scene: THREE.Object3D, side: 'L' | 'R', forward: THR
   const gripAnchor = gripFingerPos.clone().add(indexFingerPos).multiplyScalar(0.5);
   // The fork's own local origin (buildForkProp) sits 0.08 forward of the
   // handle's own grip/back end (the handle spans local z -0.08..0.02) -
-  // pushing the origin only 0.06 along zAxis therefore left the handle's
-  // BACK end sitting 0.02 BEHIND gripAnchor, not at it. Measured directly
-  // (logging each finger base's position relative to the wrist): moving
-  // backward along zAxis from the index/middle anchor moves almost
-  // straight toward the thumb (thumb sits at a notably less negative X
-  // than any of the other four fingers), so that 2cm shortfall was enough
-  // to read as "held between thumb and index" instead of "index and
-  // middle" (reported directly, with a screenshot). Matching the push to
-  // the handle's own 0.08 offset puts the grip end exactly at the anchor
-  // instead of behind it.
-  const desiredWorldPos = gripAnchor.clone().add(zAxis.clone().multiplyScalar(0.08)).add(yAxis.clone().multiplyScalar(0.01));
-  fork.position.copy(wrist.worldToLocal(desiredWorldPos));
+  // matching the push to that same 0.08 offset puts the handle's back end
+  // exactly at gripAnchor. Measured directly (logging live bone
+  // positions): the curled fingers' own reach from their base joints is
+  // only ~1-3.5cm, far short of the handle's 10cm span - but that's fine,
+  // a real fist doesn't enclose a whole pen either, it grips a few cm near
+  // the base and lets the rest protrude. What actually caused the visible
+  // gap reported earlier wasn't this offset - it was the curl-vs-zAxis
+  // direction mismatch fixed above; with the wrist now rolled so the curl
+  // points the same way the fork does, the plain anchor-matching offset
+  // is the right one (pushing further only slides the handle's back end
+  // past the anchor, away from the fingers, which made a real screenshot
+  // gap worse, not better, when tried).
+  const GRIP_EMBED_METERS = 0.08;
+  const desiredWorldPos = gripAnchor.clone().add(zAxis.clone().multiplyScalar(GRIP_EMBED_METERS)).add(yAxis.clone().multiplyScalar(0.01));
+  fork.position.copy(scene.worldToLocal(desiredWorldPos));
 }
+
+// A held phone for the 'phone' activity - same low-poly-primitive style
+// and same root-parented, recomputed-every-frame approach as
+// buildForkProp/updateHeldForkPose (see their own comments for why: world-
+// space computation from measured finger positions sidesteps ever needing
+// to know a bone's own local twist). Much simpler than the fork's grip
+// logic, though - the fork needed a height-dependent tilt blend because
+// 'eating' swings between two very different heights (plate vs mouth);
+// 'phone' only ever holds roughly one height/angle (ARM_ACTIVITY_OFFSETS.
+// phone - a small bob, no dramatic range), so this needs a single fixed
+// orientation, not a blend.
+const HELD_PHONE_NAME = 'heldPhone';
+
+function buildPhoneProp(): THREE.Group {
+  const group = new THREE.Group();
+  group.name = HELD_PHONE_NAME;
+  // Bumped up three times now - 3.2x6.5cm (too small/toylike) -> 4.5x9cm
+  // -> 5.4x10.8cm -> this (6.5x13cm), each time requested directly as
+  // still not big enough - noticeably larger than a real phone at this
+  // point, but it's a small background prop meant to read clearly rather
+  // than match real-world scale exactly.
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.065, 0.13, 0.01),
+    new THREE.MeshStandardMaterial({ color: '#1c1c1e', roughness: 0.4, metalness: 0.3 }),
+  );
+  group.add(body);
+  const screen = new THREE.Mesh(
+    new THREE.BoxGeometry(0.057, 0.118, 0.001),
+    new THREE.MeshStandardMaterial({
+      color: '#cfe3f2', roughness: 0.25, metalness: 0, emissive: '#9fc4e8', emissiveIntensity: 0.5,
+    }),
+  );
+  screen.position.set(0, 0, 0.0055);
+  group.add(screen);
+  return group;
+}
+
+// The phone's own pose (position/orientation) is computed once, statically,
+// in SeatedPose's setup block now - see its own comment there for why
+// (replaced a per-frame, fingertip-tracking version after several rounds
+// of reported issues with it).
 
 /**
  * Static seated pose (legs bent into a chair, hands resting on the thighs)
@@ -1292,20 +1686,7 @@ export function SeatedPose({
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
           if (!override?.target) continue;
           aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, new THREE.Vector3(...override.target));
-          // Palm down onto the table, fingers gently curled rather than
-          // held rigidly flat - see aimPalmNormal's own comment for why
-          // this needs measuring rather than guessing.
-          aimPalmNormal(scene, side, new THREE.Vector3(0, -1, 0));
-          for (const finger of [2, 3, 4, 5]) {
-            for (const segment of [1, 2, 3]) {
-              applyRel(
-                [scene], restMap, `finger${finger}-${segment}${side}`,
-                THREE.MathUtils.degToRad(HANDHOLD_CURL_DEGREES[segment]), 0, 0,
-              );
-            }
-          }
-          applyRel([scene], restMap, `finger1-1${side}`, THREE.MathUtils.degToRad(4), 0, 0);
-          applyRel([scene], restMap, `finger1-2${side}`, THREE.MathUtils.degToRad(3), 0, 0);
+          applyTableRestHandPose(scene, side);
         }
 
         // Prototype: give an 'eating' hand something to actually hold,
@@ -1315,19 +1696,20 @@ export function SeatedPose({
         // sleeve tracking the arm underneath it, just via real parenting
         // here instead of applyRel's copy-the-rotation trick).
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
-          // A static 'eating' override (table2's guys) always gets a fork.
-          // A 3+-peer conversation's right hand (nothing else claiming it)
-          // also gets one pre-emptively, even on a turn where this seat
-          // starts out speaking or listening - the eat role will reach it
-          // eventually, and swapping a whole fork prop in and out with the
-          // rotation would be its own can of worms; simpler for everyone at
-          // that kind of table to just be holding one throughout, the way
-          // people don't usually put a fork all the way down between bites
-          // of a conversation.
-          const dynamicRoleEats =
-            side === 'R' && !override?.activity && !override?.target && !!conversation && conversation.peers.length >= 3;
-          const isActivityFork = override?.activity === 'eating' || dynamicRoleEats;
-          if (!isActivityFork && !override?.holdsFork) continue;
+          // Used to follow automatically from activity: 'eating' (table2's
+          // guys) or from a 3+-peer conversation's rotating eat role,
+          // without needing to say so per seat - reverted, after a real
+          // animated held fork proved hard to get looking right for every
+          // character's own rig (reported directly, repeatedly, across
+          // several rounds of fixes each solving one character's angle at
+          // another's expense). Explicit opt-in now (`holdsFork: true`)
+          // instead - only table1's handhold pair opts in this way now.
+          // Everyone else's 'eating' activity still moves the arm the
+          // same way, just without a fork attached to the hand -
+          // CafeEnvironment.tsx puts one on the
+          // table by their plate instead, no per-frame angle math to get
+          // wrong.
+          if (!override?.holdsFork) continue;
           const wrist = scene.getObjectByName(`wrist${side}`);
           const gripFinger = scene.getObjectByName(`finger3-1${side}`);
           if (!wrist || !gripFinger) continue;
@@ -1357,9 +1739,184 @@ export function SeatedPose({
           // updateHeldForkPose below, right after this block runs for the
           // first time and every frame after via the per-frame activity
           // loop.
+          // Parented to the NPC's own root, not the wrist bone - see
+          // updateHeldForkPose's own comment on why.
           const fork = buildForkProp();
-          wrist.add(fork);
+          scene.add(fork);
           updateHeldForkPose(scene, side, forward);
+        }
+
+        // Both hands hold it together, half-bent, reaching toward a single
+        // shared point close in front of her chest - requested directly,
+        // "как у влюблённой парочки": the same idea table1's handhold pair
+        // already uses successfully (see TABLE1_HAND_LOWER/UPPER in
+        // CafeScene.tsx) - each hand reaches its OWN nearby FIXED point,
+        // not a moving target it has to chase. An earlier version had one
+        // hand dynamically track the phone and the other hand dynamically
+        // chase THAT hand across the body - reverted, reported directly as
+        // a curled fist nowhere near the phone, because this pose system
+        // only ever rotates the FOREARM from a statically-set elbow/
+        // shoulder (SEATED_ARM_BONES, set once here and never revisited
+        // per frame) - reaching across the body to meet a point near the
+        // OPPOSITE elbow needs the shoulder to move too, which nothing
+        // here does dynamically. A point close to the body's OWN
+        // CENTERLINE sidesteps that entirely: both elbows can reach a few
+        // cm either side of center with forearm rotation alone, the same
+        // way each half of table1's couple only ever reaches a nearby
+        // point on THEIR OWN side of a shared spot.
+        for (const override of [leftArm, rightArm]) {
+          if (!override?.holdsPhone) continue;
+          const head = scene.getObjectByName('head');
+          if (!head) continue;
+
+          const PHONE_HOLD_FORWARD_METERS = 0.24;
+          const PHONE_HOLD_UP_METERS = -0.1;
+          const PHONE_HAND_SEPARATION_METERS = 0.024;
+          const headPos = new THREE.Vector3();
+          head.getWorldPosition(headPos);
+          const UP = new THREE.Vector3(0, 1, 0);
+          const center = headPos.clone()
+            .add(forward.clone().multiplyScalar(PHONE_HOLD_FORWARD_METERS))
+            .add(UP.clone().multiplyScalar(PHONE_HOLD_UP_METERS));
+          const rightAxis = new THREE.Vector3().crossVectors(forward, UP).normalize();
+          const rightTarget = center.clone().add(rightAxis.clone().multiplyScalar(PHONE_HAND_SEPARATION_METERS));
+          const leftTarget = center.clone().add(rightAxis.clone().multiplyScalar(-PHONE_HAND_SEPARATION_METERS));
+
+          // A closed-fist curl (the original PHONE_GRIP_CURL_DEGREES,
+          // 38/30/20) read as exactly that - two fists bumped together,
+          // phone floating above them - reported directly, with a
+          // screenshot: wanted an open, cupped "boat" shape (like two
+          // hands held out to receive something) with the phone actually
+          // resting IN it, not a grip wrapped around it. Much gentler than
+          // even HANDHOLD_CURL_DEGREES' own "resting flat on a table" curl
+          // (7/5/3) - fingers stay close to straight, just enough curve to
+          // read as a soft cradle, not clenched. Thumbs barely tucked in,
+          // not wrapped over the top the way an actual grip would.
+          const PHONE_CRADLE_CURL_DEGREES: Record<number, number> = { 1: 10, 2: 7, 3: 4 };
+          // A wrist roll (SEATED_ARM_BONES' own X/Y plus an added Z twist,
+          // meant to turn the palm up toward her face) was tried here and
+          // reverted - reported directly, with a screenshot: a 70deg roll
+          // turned the hands into a prayer-like palms-together shape
+          // instead, not palm-up. Left at SEATED_ARM_BONES' own untouched
+          // wrist angle rather than guess a smaller angle blind a third
+          // time - see aimPalmNormal's own similar revert earlier in this
+          // block's history for the same underlying lesson: this file's
+          // wrist-orientation guesses keep costing a full round-trip to
+          // find out they're wrong, and a plain unrotated wrist has never
+          // itself been reported as broken.
+          for (const handSide of ['L', 'R'] as const) {
+            aimBoneAtPointExact(
+              scene, `lowerarm01${handSide}`, `lowerarm01${handSide}`, `wrist${handSide}`,
+              handSide === 'R' ? rightTarget : leftTarget,
+            );
+            for (const finger of [2, 3, 4, 5]) {
+              for (const segment of [1, 2, 3]) {
+                // The index finger (2) specifically curls more than the
+                // other three - reported directly, with a screenshot,
+                // poking straight through the phone body instead of
+                // tucking clear of it. Near where this hand's web anchor
+                // sits (finger2-1, its own BASE joint), it's the finger
+                // most directly in the phone's way; 3/4/5 stay at the
+                // original gentle cradle curl, still supporting it from
+                // underneath without needing to bend as sharply.
+                const curlDegrees = finger === 2
+                  ? PHONE_CRADLE_CURL_DEGREES[segment] * 2.2
+                  : PHONE_CRADLE_CURL_DEGREES[segment];
+                applyRel(
+                  [scene], restMap, `finger${finger}-${segment}${handSide}`,
+                  THREE.MathUtils.degToRad(curlDegrees), 0, 0,
+                );
+              }
+            }
+            applyRel([scene], restMap, `finger1-1${handSide}`, THREE.MathUtils.degToRad(8), 0, 0);
+            applyRel([scene], restMap, `finger1-2${handSide}`, THREE.MathUtils.degToRad(5), 0, 0);
+          }
+
+          // Static now, not per-frame-tracked (see this block's own comment
+          // above) - matches table1's own always-static handhold props.
+          // Orientation: same "mostly up, tilted back toward her own face"
+          // idea the earlier per-frame version used, just measured once.
+          const phone = buildPhoneProp();
+          scene.add(phone);
+          const back = new THREE.Vector3(-forward.x, 0, -forward.z).normalize();
+          const screenNormal = new THREE.Vector3(0, 1, 0).add(back.multiplyScalar(0.55)).normalize();
+          const topRef = new THREE.Vector3(forward.x, 0, forward.z).normalize();
+          const yAxis = topRef.clone().sub(screenNormal.clone().multiplyScalar(topRef.dot(screenNormal))).normalize();
+          const xAxis = new THREE.Vector3().crossVectors(yAxis, screenNormal).normalize();
+          const basis = new THREE.Matrix4().makeBasis(xAxis, yAxis, screenNormal);
+          const desiredWorldQuat = new THREE.Quaternion().setFromRotationMatrix(basis);
+          const rootWorldQuat = new THREE.Quaternion();
+          scene.getWorldQuaternion(rootWorldQuat);
+          phone.quaternion.copy(rootWorldQuat.clone().invert().multiply(desiredWorldQuat));
+
+          // Anchored in the WEB between thumb and index finger specifically
+          // (their base joints, finger1-1/finger2-1, where the two digits
+          // actually diverge from the palm) - requested directly, with a
+          // screenshot: not just "resting on the fingers" generally (the
+          // middle-fingertip anchor this used before), but nestled in that
+          // gap the way a phone actually sits when pinched there. Measured
+          // after the curl above, same "measure the real joint, don't
+          // guess an offset" fix that solved the earlier passing-through
+          // problem - just a different pair of joints now. Averaged per
+          // hand, then both hands together.
+          const rightThumb = scene.getObjectByName('finger1-1R');
+          const rightIndex = scene.getObjectByName('finger2-1R');
+          const leftThumb = scene.getObjectByName('finger1-1L');
+          const leftIndex = scene.getObjectByName('finger2-1L');
+          // The wrist-target midpoint (symmetric by construction - see
+          // rightTarget/leftTarget above) blended halfway with the actual
+          // measured fingertip midpoint, rather than the fingertip midpoint
+          // alone - reported directly, with an annotated screenshot, that
+          // it sat off to one side instead of centered between the hands.
+          // The fingertip measurement alone can skew toward whichever
+          // hand's own curl/reach happens to land slightly differently;
+          // blending back toward the known-symmetric point pulls it back
+          // to center without losing the "rests on the real fingers, not a
+          // guess" fix that solved the earlier passing-through problem.
+          let phoneCenter = rightTarget.clone().add(leftTarget).multiplyScalar(0.5);
+          if (rightThumb && rightIndex && leftThumb && leftIndex) {
+            const rightWebPos = new THREE.Vector3();
+            const leftWebPos = new THREE.Vector3();
+            const tmpThumb = new THREE.Vector3();
+            rightThumb.getWorldPosition(rightWebPos);
+            rightIndex.getWorldPosition(tmpThumb);
+            rightWebPos.add(tmpThumb).multiplyScalar(0.5);
+            leftThumb.getWorldPosition(leftWebPos);
+            leftIndex.getWorldPosition(tmpThumb);
+            leftWebPos.add(tmpThumb).multiplyScalar(0.5);
+            const webCenter = rightWebPos.add(leftWebPos).multiplyScalar(0.5);
+            // Was blended 50/50 with the wrist-target center above -
+            // combined with the lift below, reported directly as the phone
+            // floating disconnected above the hands entirely. Weighted
+            // back toward the actually-measured joints (mostly that, just
+            // a light pull toward center) rather than the more abstract
+            // symmetric point.
+            phoneCenter = phoneCenter.lerp(webCenter, 0.75);
+          }
+          // Was 25mm (floating, reverted), then 12mm - asked directly for
+          // a bit deeper into the grip still, now that it's anchored at
+          // the thumb/index web specifically rather than resting loose on
+          // top of the fingers.
+          const PHONE_REST_LIFT_METERS = 0.005;
+          phoneCenter.add(screenNormal.clone().multiplyScalar(PHONE_REST_LIFT_METERS));
+          phone.position.copy(scene.worldToLocal(phoneCenter));
+
+          // A downward glance at the phone, not a level stare ahead -
+          // requested directly, with a screenshot showing her looking
+          // straight forward instead of at the thing in her hand. Applied
+          // once here (not per-frame, and not via the conversation head-
+          // turn spring) since a solo phone seat has no `conversation` to
+          // drive the head at all otherwise - same fixed pitch magnitude
+          // CONVERSATION_TABLE_LOOK_PITCH_DEGREES already uses for
+          // "glancing down at the table", reused rather than guessed fresh.
+          if (!conversation) {
+            const worldUp = new THREE.Vector3(0, 1, 0);
+            const rightAxis = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
+            const lookDownDelta = new THREE.Quaternion().setFromAxisAngle(
+              rightAxis, THREE.MathUtils.degToRad(CONVERSATION_TABLE_LOOK_PITCH_DEGREES),
+            );
+            applyRelWorld([scene], restMap, 'head', lookDownDelta);
+          }
         }
       }
       posed.current = true;
@@ -1391,19 +1948,91 @@ export function SeatedPose({
       // already only ever lands on whoever ISN'T currently speaking, so it
       // needs no separate handling here.
       const isSpeaking = !!conversation && isConversationSpeaker(conversation, activityTime);
-      const role = conversation && conversation.peers.length >= 3
-        ? computeConversationRole(conversation, activityTime)
-        : null;
+      // computeConversationRole already collapses to a plain speak/listen
+      // split for a 2-peer conversation (see its own comment) - no longer
+      // gated to 3+ peers, so a seat with no `activity` override (tiered_
+      // dress, table2's casualsuit guy) gets the same gesture-while-
+      // speaking / rest-near-plate-while-listening behavior the table5 trio
+      // already had, instead of falling back to the base idle pose with no
+      // conversational motion at all.
+      const role = conversation ? computeConversationRole(conversation, activityTime) : null;
+      // TEMP DEBUG - remove once the stuck-arm report is diagnosed. Logs
+      // only on a role change (not every frame) to avoid flooding.
+      let roleDbgFire = false;
+      if (conversation && conversation.peers.length === 2) {
+        const last: Map<string, ConversationRole | null> =
+          (window as any).__roleDbgLast ?? ((window as any).__roleDbgLast = new Map());
+        const key = JSON.stringify(conversation.peers) + conversation.selfIndex;
+        if (last.get(key) !== role) {
+          last.set(key, role);
+          roleDbgFire = true;
+          console.log('[roleDbg]', 'peers=', conversation.peers, 'selfIndex=', conversation.selfIndex, 'role=', role, 't=', activityTime.toFixed(1));
+        }
+      }
       for (const scene of scenes) {
         const forward = seatedForwardCache.get(scene);
         if (!forward) continue;
         for (const [side, override] of [['L', leftArm] as const, ['R', rightArm] as const]) {
           let rawTarget: THREE.Vector3 | null = null;
+          // Whether this frame's target is the flat-on-the-table "listening"
+          // rest pose (as opposed to a gesture/eating/phone-in-hand pose) -
+          // that one needs the palm forced down and fingers curled (see
+          // applyTableRestHandPose's own comment), the others don't.
+          let isListenRest = false;
+          // Whether this frame's target is the 'gesture' pose specifically -
+          // see the aimBoneAtPointExact/aimBoneAtPoint branch below for why
+          // this matters.
+          let isGesture = false;
           if (override?.activity) {
-            const activity = isSpeaking ? 'gesture' : override.activity;
-            rawTarget = computeActivityTarget(scene, forward, activity, activityTime);
-          } else if (side === 'R' && !override?.target && role) {
-            rawTarget = computeConversationArmTarget(scene, forward, role, activityTime);
+            if (isSpeaking) {
+              rawTarget = computeActivityTarget(scene, forward, 'gesture', activityTime);
+              isGesture = true;
+            } else if (override.activity === 'phone' && conversation) {
+              // Lower the phone hand onto the table while listening, same
+              // as a no-override conversation seat's listen pose, instead
+              // of holding it up scrolling for the entire time she isn't
+              // speaking - reported directly, with a screenshot of the
+              // hand staying raised through her own listening/nodding
+              // turns. Eating stays on its own activity while listening
+              // (unchanged) - someone visibly eating between bites during
+              // a pause reads fine; a phone doesn't need the same excuse.
+              rawTarget = computeListenRestTarget(
+                scene, forward, conversation.tableCenter, conversation.tableRadius, conversation.tableEdgeMargin,
+              );
+              isListenRest = true;
+            } else {
+              rawTarget = computeActivityTarget(
+                scene, forward, override.activity, activityTime,
+                conversation?.tableCenter, conversation?.tableRadius, conversation?.tableEdgeMargin,
+              );
+              // Same table-rest hand pose as the listening case, but only
+              // for the near-plate portion of the eating cycle (not while
+              // the hand's actually lifting food to the mouth) - see
+              // computeEatingBlend's own comment.
+              if (override.activity === 'eating') {
+                isListenRest = computeEatingBlend(activityTime) < 0.2;
+              }
+            }
+          } else if (side === 'R' && override?.target && override.gestureWhileSpeaking && conversation) {
+            // A fixed resting point that still gestures on its own
+            // speaking turn, then eases back to that static point once it
+            // isn't - opt-in (see SeatedArmOverride's own comment on why
+            // this doesn't just apply to every `target` automatically).
+            rawTarget = isSpeaking
+              ? computeActivityTarget(scene, forward, 'gesture', activityTime)
+              : new THREE.Vector3(...override.target);
+            isListenRest = !isSpeaking;
+            isGesture = isSpeaking;
+          } else if (side === 'R' && !override?.target && role && conversation) {
+            rawTarget = computeConversationArmTarget(scene, forward, role, activityTime, conversation);
+            // 'listen' is the table-rest pose outright; 'eat' only counts
+            // while its own cycle is actually down near the plate, same
+            // distinction as the plain activity-override case above.
+            isListenRest = role === 'listen' || (role === 'eat' && computeEatingBlend(activityTime) < 0.2);
+            isGesture = role === 'speak';
+            if (roleDbgFire) {
+              console.log('[roleDbg] rawTarget.y=', rawTarget?.y.toFixed(3), 'role=', role, 'selfIndex=', conversation?.selfIndex);
+            }
           }
           if (rawTarget) {
             // Ease toward rawTarget instead of snapping straight to it -
@@ -1418,18 +2047,77 @@ export function SeatedPose({
             } else {
               smoothed[side]!.lerp(rawTarget, 1 - Math.exp(-ARM_TARGET_EASE_RATE * armDelta));
             }
-            aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, smoothed[side]!);
+            if (isGesture) {
+              // The gesture pose never needed to touch an exact point (it's
+              // not resting on anything or meeting another hand) - direction
+              // only, no stretch/compress correction. Reported directly that
+              // it read as a repeated jerk while speaking continued: gesture
+              // already sways continuously (GESTURE_SWAY_METERS), and running
+              // that through aimBoneAtPointExact meant the correction kept
+              // crossing MAX_REACH_CORRECTION_METERS' clamp boundary every
+              // cycle - smooth error growth, then a hard cap, over and over.
+              // Plain direction-only aiming has no such boundary to cross.
+              aimBoneAtPoint(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, smoothed[side]!);
+            } else {
+              aimBoneAtPointExact(scene, `lowerarm01${side}`, `lowerarm01${side}`, `wrist${side}`, smoothed[side]!);
+            }
+            // Eases toward 1 while resting, 0 while not, instead of
+            // snapping applyTableRestHandPose fully on/off the instant
+            // isListenRest flips - see its own `blend` doc.
+            let blendState = palmRestBlendState.get(scene);
+            if (!blendState) {
+              blendState = {};
+              palmRestBlendState.set(scene, blendState);
+            }
+            const blendTarget = isListenRest ? 1 : 0;
+            blendState[side] = THREE.MathUtils.lerp(
+              blendState[side] ?? blendTarget, blendTarget, 1 - Math.exp(-ARM_TARGET_EASE_RATE * armDelta),
+            );
+            if (blendState[side]! > 0.001) applyTableRestHandPose(scene, side, blendState[side]);
           }
           // A held fork's pose depends on the wrist's CURRENT world
           // transform (see updateHeldForkPose's own comment for why this
           // has to be live, not baked once) - runs regardless of whether
           // this side's arm target moved this frame, since a `target`-
           // based `holdsFork` hand (never touched by the block above)
-          // still needs it just as much as an activity-based one.
-          const dynamicRoleEats =
-            side === 'R' && !override?.activity && !override?.target && !!conversation && conversation.peers.length >= 3;
-          if (override?.activity === 'eating' || dynamicRoleEats || override?.holdsFork) {
+          // still needs it just as much as an activity-based one. Explicit
+          // opt-in only now - see the setup block's own comment on why.
+          if (override?.holdsFork) {
             updateHeldForkPose(scene, side, forward);
+          }
+          // holdsPhone's pose is fully static now, set once in the setup
+          // block above (see its own comment on why) - EXCEPT the right
+          // thumb, which gets a small smooth up/down sway here every
+          // frame, requested directly, to read as scrolling the screen.
+          // Reuses the base rest-relative curl SEATED_ARM_BONES' own
+          // finger1-1R/finger1-2R setup already applies (8/5 degrees, see
+          // the holdsPhone setup block above) and just adds a sine offset
+          // on top each frame - applyRel is rest-relative, not cumulative
+          // (see its own comment), so overwriting it every frame like this
+          // is the same safe pattern IdleAnimation's own breathing bob
+          // uses, not something that can drift or compound.
+          if (override?.holdsPhone) {
+            // The previous attempt put the oscillation on X (the same axis
+            // every finger curl in this file uses) plus a bit of Z - that
+            // read as forward/back (toward and away from the palm, i.e.
+            // curling and uncurling in place), not up/down along the
+            // screen - reported directly, confirmed by actually watching
+            // it move rather than a still. X now stays at its fixed base
+            // curl (unchanged, matching the static rest pose) and the
+            // sway moves on Y instead - the one axis nothing else in this
+            // file uses for the thumb, by elimination the one left for a
+            // different plane of motion than the confirmed-wrong X.
+            const SCROLL_PERIOD_SECONDS = 1.8;
+            const SCROLL_AMPLITUDE_DEGREES = 22;
+            const scrollPhase = Math.sin((activityTime / SCROLL_PERIOD_SECONDS) * Math.PI * 2) * SCROLL_AMPLITUDE_DEGREES;
+            applyRel(
+              [scene], restMap, 'finger1-1R',
+              THREE.MathUtils.degToRad(8), THREE.MathUtils.degToRad(scrollPhase), 0,
+            );
+            applyRel(
+              [scene], restMap, 'finger1-2R',
+              THREE.MathUtils.degToRad(5), THREE.MathUtils.degToRad(scrollPhase * 0.7), 0,
+            );
           }
         }
       }
@@ -1489,8 +2177,13 @@ export function SeatedPose({
       chestBone.position.y += breathe * 0.016;
     }
 
-    applyMorphInfluence(scenes, 'eye_left_closure', 0);
-    applyMorphInfluence(scenes, 'eye_right_closure', 0);
+    // Blinking - see computeBlinkAmount's own comment on why this is
+    // re-enabled now (was hardcoded to 0 here, same as IdleAnimation).
+    for (const scene of scenes) {
+      const blink = computeBlinkAmount(scene, t);
+      applyMorphInfluence([scene], 'eye_left_closure', blink);
+      applyMorphInfluence([scene], 'eye_right_closure', blink);
+    }
     applyMorphInfluence(scenes, 'mouth_open', conversation ? computeMouthOpen(conversation, t) : 0);
   });
 

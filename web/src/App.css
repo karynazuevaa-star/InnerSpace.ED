@@ -1376,10 +1376,12 @@ input[type='range']::-moz-range-thumb {
   backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: var(--text);
+  font: inherit;
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .room-overlay__back:hover {
@@ -1397,63 +1399,368 @@ input[type='range']::-moz-range-thumb {
   padding: 8px 14px;
 }
 
-/* Shown while the player is near the cafe's counter (see
-   CafeScene.tsx's CounterProximityWatcher) - same sibling-of-<Canvas>
-   overlay pattern as .scene-loader/.room-overlay, not a 3D-anchored
-   drei <Html>. */
-.cafe-menu {
+/* Click-to-sit's own "some indication" (requested directly) - shown while
+   near a sittable seat (see PlayerControls' onNearSeatChange), same small
+   pill look as .room-overlay__hint's "Drag to look around..." bar, just
+   bottom-center instead of top-left since it needs to read as "something
+   here, right in front of you" rather than a persistent control hint. */
+.sit-hint {
   position: absolute;
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(360px, calc(100% - 40px));
-  max-height: min(60vh, 420px);
+  pointer-events: none;
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(10, 10, 14, 0.65);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  z-index: 5;
+}
+
+/* The table-menu feature (requested directly: pick something and it
+   appears on your table, several things at once - toggle each on/off
+   independently) - shown for as long as the player is sitting. Replaced
+   the old walk-up-to-the-counter menu entirely (also requested directly -
+   see CafeScene.tsx's own comment on why). Off to the side, not
+   bottom-center where .sit-hint lives, since both could in principle be
+   near-simultaneous (the hint fading out right as you sit down and this
+   panel fades in). Bottom-LEFT specifically (moved from bottom-right,
+   requested directly) - .top-right-controls' own hints panel can get tall
+   enough that the two were overlapping on shorter viewports when both
+   were open at once (sitting down while the hints panel was open,
+   reported directly with a screenshot); the whole right edge is reserved
+   for that stack now, this is the only thing on the left. */
+.table-menu {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  width: min(280px, calc(100% - 40px));
+  max-height: min(70vh, 480px);
   overflow-y: auto;
   background: rgba(10, 10, 14, 0.78);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   color: var(--text);
   z-index: 5;
 }
 
-.cafe-menu__title {
+.table-menu__title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.table-menu__hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.table-menu__list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.table-menu__item {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.table-menu__item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.table-menu__item--selected {
+  background: rgba(120, 170, 255, 0.18);
+  border-color: rgba(140, 185, 255, 0.55);
+}
+
+.table-menu__clear {
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.table-menu__clear:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Shared positioned wrapper for the top-right overlay stack (guide
+   toggle/panel + sound controls, both in CafeScene.tsx) - one absolute
+   container with a column flex layout instead of each control guessing
+   the other's height to avoid overlapping. Top-right rather than
+   bottom-right, since .table-menu already lives there and the two can be
+   on screen at once (sitting down while either of these is open). */
+.top-right-controls {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 5;
+}
+
+/* The specialist's exposure-guide toggle - same pill look as
+   .room-overlay__hint's "Drag to look around..." bar (requested directly:
+   this exact styling), just an actual button (pointer-events: auto,
+   cursor, hover state) instead of a plain inert paragraph. */
+.guide-toggle {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(10, 10, 14, 0.4);
+  backdrop-filter: blur(4px);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.guide-toggle:hover {
+  background: rgba(10, 10, 14, 0.6);
+  color: var(--text);
+}
+
+/* The guide panel itself - deliberately compact (requested directly: this
+   should not clutter the screen). Decluttering comes from three things
+   together: the panel is closed by default (only the pill above is ever
+   on screen unprompted), every step's own text is one short line (see
+   GUIDE_STEP_KEYS' own comment in CafeScene.tsx), and the list scrolls
+   past a max-height instead of growing the panel - same pattern
+   .table-menu already uses. */
+.guide-panel {
+  width: min(280px, calc(100vw - 40px));
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+  background: rgba(10, 10, 14, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  color: var(--text);
+}
+
+.guide-panel__title {
   margin: 0 0 12px;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 
-.cafe-menu__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* One item at a time (requested directly) - the two SUDS ratings are
+   items in this SAME sequence now (start first, end last - requested
+   directly, no longer framing the list above/below it), so there's one
+   shared card style for all three shapes (start rating / question /
+   end rating) rather than a separate always-visible slider style.
+   Highlighted as its own tinted, bordered card (requested directly: the
+   hints should stand out, not read as plain body text) instead of a
+   plain row. */
+.guide-panel__item {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: rgba(140, 185, 255, 0.1);
+  border: 1px solid rgba(140, 185, 255, 0.3);
+  border-radius: 10px;
+}
+
+.guide-panel__item--step {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
 }
 
-.cafe-menu__item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-soft);
+.guide-panel__item--step input {
+  margin-top: 2px;
+  accent-color: rgba(140, 185, 255, 0.85);
+  cursor: pointer;
 }
 
-.cafe-menu__item:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.cafe-menu__item-name {
-  font-size: 13.5px;
+.guide-panel__item-text {
+  display: block;
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.4;
   color: var(--text);
 }
 
-.cafe-menu__item-desc {
-  font-size: 12px;
+.guide-panel__suds-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.guide-panel__suds-row input[type='range'] {
+  flex: 1;
+  accent-color: rgba(140, 185, 255, 0.85);
+  cursor: pointer;
+}
+
+.guide-panel__suds-row strong {
+  min-width: 1.4em;
+  text-align: right;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.guide-panel__next {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(140, 185, 255, 0.18);
+  border: 1px solid rgba(140, 185, 255, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.guide-panel__next:hover {
+  background: rgba(140, 185, 255, 0.28);
+}
+
+.guide-panel__done {
+  margin: 0;
+  font-size: 12.5px;
   color: var(--text-dim);
+}
+
+/* The results summary shown when leaving via the door with both SUDS
+   ratings set (see handleDoorClick in CafeScene.tsx) - same
+   overlay+centered-card shape as .avatar-consent-overlay/-modal, own
+   class names since this is scoped to one room rather than a shared
+   app-wide dialog. */
+.guide-results-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 6, 10, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.guide-results-modal {
+  max-width: 320px;
+  width: 100%;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px;
+  color: var(--text);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+
+.guide-results-modal h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.guide-results-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+
+.guide-results-row strong {
+  font-size: 18px;
+  color: var(--text);
+}
+
+.guide-results-continue {
+  width: 100%;
+  margin-top: 20px;
+  padding: 11px 20px;
+  background: var(--accent-grad);
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.guide-results-continue:hover {
+  filter: brightness(1.08);
+}
+
+.sound-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: rgba(10, 10, 14, 0.55);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.sound-controls__mute {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.sound-controls__mute:hover {
+  color: var(--text-dim);
+}
+
+.sound-controls__volume {
+  width: 90px;
+  accent-color: rgba(140, 185, 255, 0.85);
+  cursor: pointer;
 }

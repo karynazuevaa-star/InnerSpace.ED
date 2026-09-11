@@ -1,19 +1,15 @@
-import { Link } from 'react-router-dom';
 import { CafeScene } from '../components/rooms/CafeScene';
-import { useLanguage } from '../i18n/LanguageContext';
 
+// The "<- Rooms" back button/hint pair used to live here as a plain
+// overlay, but it now needs to share the specialist-guide's own exit
+// handler (show a results summary before navigating, if both anxiety
+// ratings are set) - that state only exists inside CafeScene, so the
+// overlay moved in there with it (see CafeScene.tsx's own comment).
 export function CafeRoomPage() {
-  const { t } = useLanguage();
   return (
     <div className="home-page">
       <div className="scene-pane">
         <CafeScene />
-        <div className="room-overlay">
-          <Link to="/rooms" className="room-overlay__back">
-            {t('rooms.back')}
-          </Link>
-          <p className="room-overlay__hint">{t('rooms.cafeHint')}</p>
-        </div>
       </div>
     </div>
   );

@@ -44,6 +44,16 @@ export interface NpcConfig {
    * lengths. `position` still names the floor spot under the chair, same
    * as a standing NPC - the seat drop is applied on top of it here. */
   seated?: boolean;
+  /** Only meaningful when seated - replaces the shared SEATED_HIP_DROP_
+   * METERS for this one NPC. That constant was measured off one reference
+   * body's own bone lengths - a preset built from noticeably different
+   * body-shape morphs (macro_weight, muscle, etc. in the bake pipeline)
+   * can have slightly different actual proportions, and the shared drop
+   * then sits this specific NPC visibly low in - or high above - the
+   * chair seat (reported directly, with a screenshot: npc_thinner sunk
+   * about halfway into hers). Per-NPC, not a change to the shared
+   * constant, so it can't affect anyone else's already-correct seating. */
+  seatedHipDropOverride?: number;
   /** Only meaningful when seated - overrides that hand's default rest-on-
    * the-thigh pose with an activity (phone/eating/gesture) or a fixed
    * point to reach for (a shared handhold spot on the table). See
@@ -74,6 +84,16 @@ function NpcPreset({ preset }: { preset: NpcPresetName }) {
     });
     primeIdleAnimationRestPose(scene);
     registerPosableScene(scene);
+    // TEMP DEBUG - remove once the stuck-right-arm report is diagnosed.
+    // Doesn't depend on the render loop (unlike the useFrame-based
+    // [roleDbg] logs in idleAnimation.tsx), so it fires even where rAF is
+    // stalled.
+    if (preset === 'npc_tiered_dress') {
+      const names = ['lowerarm01R', 'wristR', 'upperarm01R', 'finger3-1R', 'finger2-1R', 'head'];
+      console.log('[boneDbg] npc_tiered_dress bone lookup:', Object.fromEntries(
+        names.map((n) => [n, !!scene.getObjectByName(n)]),
+      ));
+    }
     return () => unregisterPosableScene(scene);
   }, [scene, registerPosableScene, unregisterPosableScene]);
 
@@ -82,7 +102,7 @@ function NpcPreset({ preset }: { preset: NpcPresetName }) {
 
 export function NpcAvatar({ config }: { config: NpcConfig }) {
   const [x, y, z] = config.position;
-  const groupY = config.seated ? y - SEATED_HIP_DROP_METERS : y;
+  const groupY = config.seated ? y - (config.seatedHipDropOverride ?? SEATED_HIP_DROP_METERS) : y;
   return (
     <group position={[x, groupY, z]} rotation={[0, config.rotationY, 0]}>
       <AvatarProvider>
