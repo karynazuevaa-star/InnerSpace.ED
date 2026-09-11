@@ -39,7 +39,7 @@ export function TopNav() {
         <NavLink to="/avatar" data-tour="avatar" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>
           {t('nav.avatar')}
         </NavLink>
-        <NavLink to="/rooms" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>
+        <NavLink to="/rooms" data-tour="rooms" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>
           {t('nav.rooms')}
         </NavLink>
         <NavLink to="/materials" data-tour="materials" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>

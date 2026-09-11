@@ -22,6 +22,7 @@ export const translations: Record<Lang, Record<string, string>> = {
       'Модели Bathroom scale, Kettlebell и Dumbbell от Poly by Google, Salad Bowl от Jarlan Perez, лицензия CC BY.',
 
     'tour.avatarCaption': 'Место, где можно работать с образом тела через виртуального аватара.',
+    'tour.roomsCaption': 'Место для экспозиционной практики - кафе, бассейн, спортзал.',
     'tour.materialsCaption': 'Упражнения, скрининги и психообразование.',
     'tour.testsCaption': 'Тесты на тревогу и симптомы РПП.',
     'tour.next': 'Далее',
@@ -174,6 +175,7 @@ export const translations: Record<Lang, Record<string, string>> = {
       'Bathroom scale, Kettlebell and Dumbbell models by Poly by Google, Salad Bowl by Jarlan Perez, licensed CC BY.',
 
     'tour.avatarCaption': 'A place to work with body image through a virtual avatar.',
+    'tour.roomsCaption': 'A place for exposure practice - a cafe, a pool, a gym.',
     'tour.materialsCaption': 'Exercises, screenings and psychoeducation.',
     'tour.testsCaption': 'Tests for anxiety and ED symptoms.',
     'tour.next': 'Next',

@@ -1,10 +1,20 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
-// Steps 0-2 point at a nav link (avatar/materials/tests). Step 3 is a
-// closing disclaimer with no nav target of its own.
-export type TourStep = 0 | 1 | 2 | 3;
-export const TOUR_NAV_TARGETS: readonly ['avatar', 'materials', 'tests'] = ['avatar', 'materials', 'tests'];
-const LAST_STEP: TourStep = 3;
+// Steps 0-3 point at a nav link (avatar/rooms/materials/tests) - matching
+// TopNav's own left-to-right order (Home/Avatar/Rooms/Materials/Tests).
+// Rooms was missing from this tour entirely at first (requested directly
+// to fix: the "explore the site" tour skipped straight from Avatar to
+// Materials) - inserted at index 1 to match where it actually sits in the
+// nav, not appended at the end. Step 4 is a closing disclaimer with no
+// nav target of its own.
+export type TourStep = 0 | 1 | 2 | 3 | 4;
+export const TOUR_NAV_TARGETS: readonly ['avatar', 'rooms', 'materials', 'tests'] = [
+  'avatar',
+  'rooms',
+  'materials',
+  'tests',
+];
+const LAST_STEP: TourStep = 4;
 
 interface TourContextValue {
   step: TourStep | null;

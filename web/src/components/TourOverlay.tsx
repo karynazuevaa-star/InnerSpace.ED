@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react';
 import { useTour, TOUR_NAV_TARGETS, type TourStep } from '../tour/TourContext';
 import { useLanguage } from '../i18n/LanguageContext';
 
-const NAV_CAPTION_KEYS = ['tour.avatarCaption', 'tour.materialsCaption', 'tour.testsCaption'] as const;
-const LAST_STEP: TourStep = 3;
+// Rooms inserted at index 1 (requested directly - it was missing from the
+// tour entirely, which used to skip straight from Avatar to Materials),
+// matching TOUR_NAV_TARGETS' own order in TourContext.tsx.
+const NAV_CAPTION_KEYS = [
+  'tour.avatarCaption',
+  'tour.roomsCaption',
+  'tour.materialsCaption',
+  'tour.testsCaption',
+] as const;
+const LAST_STEP: TourStep = 4;
 // The closing disclaimer has no nav item of its own, so it stays anchored
 // under "Tests" - the same spot as the step right before it.
-const TARGET_INDEX_BY_STEP = [0, 1, 2, 2] as const;
+const TARGET_INDEX_BY_STEP = [0, 1, 2, 3, 3] as const;
 
 export function TourOverlay() {
   const { step, next, finish } = useTour();
