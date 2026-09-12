@@ -57,6 +57,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     'loading.avatar': 'Собираем аватар…',
     'loading.brain': 'Загружаем модель мозга…',
+    'scene.error.title': 'Не удалось загрузить сцену',
+    'scene.error.body': 'Проверьте подключение к интернету и попробуйте ещё раз.',
+    'scene.error.retry': 'Попробовать снова',
 
     'body.heading': 'Тело',
     'body.weight': 'Вес',
@@ -211,6 +214,9 @@ export const translations: Record<Lang, Record<string, string>> = {
 
     'loading.avatar': 'Building avatar…',
     'loading.brain': 'Loading brain model…',
+    'scene.error.title': "Couldn't load the scene",
+    'scene.error.body': 'Check your internet connection and try again.',
+    'scene.error.retry': 'Try again',
 
     'body.heading': 'Body',
     'body.weight': 'Weight',

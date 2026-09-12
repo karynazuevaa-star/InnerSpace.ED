@@ -5,6 +5,8 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useLanguage } from '../i18n/LanguageContext';
 import { SceneLoader } from './SceneLoader';
+import { SceneErrorBoundary } from './SceneErrorBoundary';
+import { SceneErrorScreen } from './SceneErrorScreen';
 import {
   BRAIN_REGIONS,
   BRAIN_INTRO_RU,
@@ -153,11 +155,21 @@ function BrainMesh({ selectedId, onSelect }: { selectedId: string; onSelect: (id
   );
 }
 
-function Scene({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
+function Scene({
+  selectedId,
+  onSelect,
+  onError,
+}: {
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onError: () => void;
+}) {
   return (
-    <Suspense fallback={null}>
-      <BrainMesh selectedId={selectedId} onSelect={onSelect} />
-    </Suspense>
+    <SceneErrorBoundary onError={onError}>
+      <Suspense fallback={null}>
+        <BrainMesh selectedId={selectedId} onSelect={onSelect} />
+      </Suspense>
+    </SceneErrorBoundary>
   );
 }
 
@@ -165,6 +177,7 @@ export function BrainViewer() {
   const { t, lang } = useLanguage();
   const [selectedId, setSelectedId] = useState(BRAIN_REGIONS[0].id);
   const [view, setView] = useState<ViewState>('normal');
+  const [hasError, setHasError] = useState(false);
 
   const selected = BRAIN_REGIONS.find((r) => r.id === selectedId) ?? BRAIN_REGIONS[0];
   const text =
@@ -184,13 +197,13 @@ export function BrainViewer() {
     <div className="brain-page">
       <div className="brain-viewer">
         <div className="scene-pane brain-scene-pane">
-          <SceneLoader label={t('loading.brain')} />
+          {hasError ? <SceneErrorScreen /> : <SceneLoader label={t('loading.brain')} />}
           <Canvas camera={{ position: [0, 0.1, 2.0], fov: 38 }} style={{ background: '#0d0a1a' }} shadows>
             <ambientLight intensity={0.6} color="#cdb9ff" />
             <directionalLight position={[2, 2.5, 2]} intensity={1.15} color="#a897ff" castShadow />
             <directionalLight position={[-2, -1, -2]} intensity={0.35} color="#5b9cff" />
             <pointLight position={[0, 0.5, 1.5]} intensity={0.6} color="#ffffff" distance={5} decay={2} />
-            <Scene selectedId={selectedId} onSelect={setSelectedId} />
+            <Scene selectedId={selectedId} onSelect={setSelectedId} onError={() => setHasError(true)} />
             <OrbitControls
               target={[0, 0, 0]}
               minDistance={1.2}

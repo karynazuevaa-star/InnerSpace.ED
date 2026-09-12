@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
@@ -10,6 +10,8 @@ import { HeadAttachmentLegacy } from './HeadAttachmentLegacy';
 import { OutfitPiece } from './OutfitPiece';
 import { Room } from './Room';
 import { SceneLoader } from './SceneLoader';
+import { SceneErrorBoundary } from './SceneErrorBoundary';
+import { SceneErrorScreen } from './SceneErrorScreen';
 import { GazeHeatmap } from '../gaze/GazeHeatmap';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { BodyMorphState } from '../avatar/bodyMorphs';
@@ -39,9 +41,10 @@ export interface AvatarConfig {
 
 export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
   const { t } = useLanguage();
+  const [hasError, setHasError] = useState(false);
   return (
     <>
-    <SceneLoader label={t('loading.avatar')} />
+    {hasError ? <SceneErrorScreen /> : <SceneLoader label={t('loading.avatar')} />}
     <Canvas shadows camera={{ position: [0, 0.9, 2.4], fov: 35 }} style={{ background: '#382f3f' }}>
       <ambientLight intensity={0.95} color="#fff2e2" />
       <directionalLight
@@ -64,15 +67,17 @@ export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
               once ALL of them are ready, so the avatar appears fully
               assembled in one frame rather than limbs/hair/eyes popping in
               individually as each glTF happens to finish loading. */}
-          <Suspense fallback={null}>
-            <BodyLegacy morphs={config.morphs} />
-            <OutfitPiece url={config.topUrl} morphs={config.morphs} />
-            <OutfitPiece url={config.bottomUrl} morphs={config.morphs} />
-            <HeadAttachmentLegacy url="/models-legacy/eyes.glb" />
-            <HeadAttachmentLegacy url="/models-legacy/eyebrows.glb" transparent />
-            <HeadAttachmentLegacy url="/models-legacy/eyelashes.glb" transparent />
-            {config.hairStyle && <Hair style={config.hairStyle} color={config.hairColor} />}
-          </Suspense>
+          <SceneErrorBoundary onError={() => setHasError(true)}>
+            <Suspense fallback={null}>
+              <BodyLegacy morphs={config.morphs} />
+              <OutfitPiece url={config.topUrl} morphs={config.morphs} />
+              <OutfitPiece url={config.bottomUrl} morphs={config.morphs} />
+              <HeadAttachmentLegacy url="/models-legacy/eyes.glb" />
+              <HeadAttachmentLegacy url="/models-legacy/eyebrows.glb" transparent />
+              <HeadAttachmentLegacy url="/models-legacy/eyelashes.glb" transparent />
+              {config.hairStyle && <Hair style={config.hairStyle} color={config.hairColor} />}
+            </Suspense>
+          </SceneErrorBoundary>
           {/* No IdleAnimation here - this page is the "before animation,
               and everything since" comparison baseline. StaticRelaxedPose
               is a one-time pose, not a per-frame animation: it swaps the

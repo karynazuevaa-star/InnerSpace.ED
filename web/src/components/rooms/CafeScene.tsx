@@ -5,6 +5,8 @@ import { CafeEnvironment, MENU_FOOD_ITEMS, type MenuFoodId } from './CafeEnviron
 import { NpcAvatar, type NpcConfig } from './NpcAvatar';
 import { PlayerControls, type RoomBounds, type Seat } from './PlayerControls';
 import { SceneLoader } from '../SceneLoader';
+import { SceneErrorBoundary } from '../SceneErrorBoundary';
+import { SceneErrorScreen } from '../SceneErrorScreen';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { ConversationConfig } from '../../avatar/idleAnimation';
 
@@ -348,6 +350,7 @@ const GUIDE_STEP_KEYS = [
  */
 export function CafeScene() {
   const { t } = useLanguage();
+  const [hasError, setHasError] = useState(false);
 
   // Click-to-sit's own "some indication" (requested directly) - which seat
   // (an index into EMPTY_TABLE_SEATS) the player is currently close enough
@@ -504,7 +507,7 @@ export function CafeScene() {
 
   return (
     <>
-      <SceneLoader label={t('loading.room')} />
+      {hasError ? <SceneErrorScreen /> : <SceneLoader label={t('loading.room')} />}
       {/* Moved in from CafeRoomPage.tsx (requested directly - the back
           button needs to share `handleExit` above, which needs guide
           state that only exists in here) - same "<- Rooms" pill/hint-text
@@ -527,12 +530,14 @@ export function CafeScene() {
           shadow-mapSize={[512, 512]}
           shadow-bias={-0.0006}
         />
-        <Suspense fallback={null}>
-          <CafeEnvironment tableOrders={tableOrders} onDoorClick={handleExit} />
-          {NPCS.map((npc, i) => (
-            <NpcAvatar key={i} config={npc} />
-          ))}
-        </Suspense>
+        <SceneErrorBoundary onError={() => setHasError(true)}>
+          <Suspense fallback={null}>
+            <CafeEnvironment tableOrders={tableOrders} onDoorClick={handleExit} />
+            {NPCS.map((npc, i) => (
+              <NpcAvatar key={i} config={npc} />
+            ))}
+          </Suspense>
+        </SceneErrorBoundary>
         <PlayerControls
           start={[0, 2.6]}
           startYaw={0}
