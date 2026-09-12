@@ -87,6 +87,15 @@
   text-align: center;
 }
 
+.app-footer a {
+  color: var(--text-dim);
+  text-decoration: underline;
+}
+
+.app-footer a:hover {
+  color: var(--text);
+}
+
 .home-page {
   display: flex;
   width: 100%;

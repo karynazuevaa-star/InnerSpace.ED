@@ -22,7 +22,12 @@ function AppFooter() {
   const { t } = useLanguage();
   return (
     <footer className="app-footer">
-      <p>{t('footer.copyright')}</p>
+      <p>
+        {t('footer.copyright')}{' '}
+        <a href="/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">
+          {t('footer.privacyPolicy')}
+        </a>
+      </p>
     </footer>
   );
 }
