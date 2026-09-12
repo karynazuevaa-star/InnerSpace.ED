@@ -3,6 +3,7 @@ export type Lang = 'ru' | 'en';
 export const translations: Record<Lang, Record<string, string>> = {
   ru: {
     'app.subtitle': 'Визуализация тела для терапевтической работы',
+    'footer.copyright': '© 2026 InnerSpace. Все оригинальные материалы, дизайн и программный код защищены авторским правом.',
 
     'nav.home': 'Главная',
     'nav.avatar': 'Аватар',
@@ -156,6 +157,7 @@ export const translations: Record<Lang, Record<string, string>> = {
   },
   en: {
     'app.subtitle': 'Body visualization for therapeutic work',
+    'footer.copyright': '© 2026 InnerSpace. All original materials, design, and code are protected by copyright.',
 
     'nav.home': 'Home',
     'nav.avatar': 'Avatar',
