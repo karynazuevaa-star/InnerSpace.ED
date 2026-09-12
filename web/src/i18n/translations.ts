@@ -18,9 +18,7 @@ export const translations: Record<Lang, Record<string, string>> = {
       'Инструмент, созданный клиническими психологами, для терапевтической работы с образом тела при расстройствах пищевого поведения.',
     'landing.cta': 'Исследовать сайт',
     'landing.disclaimer':
-      'Инструмент предназначен для использования вместе со специалистом, а не для самостоятельной работы без сопровождения.',
-    'landing.disclaimerPrivacy':
-      'InnerSpace.ED не собирает и не хранит данные, а также не несёт ответственности за сессии, которые специалисты проводят с помощью этого инструмента.',
+      'InnerSpace.ED — немедицинский вспомогательный инструмент для квалифицированных специалистов. Он не ставит диагнозы, не назначает лечение и не заменяет профессиональное клиническое решение.',
     'landing.modelCredit':
       'Модели Bathroom scale, Kettlebell и Dumbbell от Poly by Google, Salad Bowl от Jarlan Perez, лицензия CC BY.',
 
@@ -174,9 +172,7 @@ export const translations: Record<Lang, Record<string, string>> = {
       'A tool created by clinical psychologists for therapeutic work on body image in eating disorders.',
     'landing.cta': 'Explore the site',
     'landing.disclaimer':
-      'This tool is meant to be used together with a professional, not for unsupervised self-guided use.',
-    'landing.disclaimerPrivacy':
-      'InnerSpace.ED does not collect or store data, and is not responsible for sessions that specialists conduct using this tool.',
+      'InnerSpace.ED is a non-medical support tool for qualified professionals. It does not diagnose, prescribe treatment, or replace professional clinical judgement.',
     'landing.modelCredit':
       'Bathroom scale, Kettlebell and Dumbbell models by Poly by Google, Salad Bowl by Jarlan Perez, licensed CC BY.',
 

@@ -45,7 +45,7 @@ export function TourOverlay() {
   if (step === null || !rect) return null;
 
   const centerX = rect.left + rect.width / 2;
-  const caption = isFinalStep ? t('landing.disclaimerPrivacy') : t(NAV_CAPTION_KEYS[TARGET_INDEX_BY_STEP[step]]);
+  const caption = isFinalStep ? t('landing.disclaimer') : t(NAV_CAPTION_KEYS[TARGET_INDEX_BY_STEP[step]]);
 
   return (
     <>

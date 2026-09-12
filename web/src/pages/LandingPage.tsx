@@ -25,7 +25,6 @@ export function LandingPage() {
 
       <section className="landing-section landing-note">
         <p>{t('landing.disclaimer')}</p>
-        <p>{t('landing.disclaimerPrivacy')}</p>
         <p className="landing-credit">{t('landing.modelCredit')}</p>
       </section>
     </div>
