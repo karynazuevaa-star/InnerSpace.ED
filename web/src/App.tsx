@@ -27,6 +27,10 @@ function AppFooter() {
         <a href="/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">
           {t('footer.privacyPolicy')}
         </a>
+        {' · '}
+        <a href="/terms-of-use.pdf" target="_blank" rel="noopener noreferrer">
+          {t('footer.termsOfUse')}
+        </a>
       </p>
     </footer>
   );
