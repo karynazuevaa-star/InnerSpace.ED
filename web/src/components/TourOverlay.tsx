@@ -11,10 +11,7 @@ const NAV_CAPTION_KEYS = [
   'tour.materialsCaption',
   'tour.testsCaption',
 ] as const;
-const LAST_STEP: TourStep = 4;
-// The closing disclaimer has no nav item of its own, so it stays anchored
-// under "Tests" - the same spot as the step right before it.
-const TARGET_INDEX_BY_STEP = [0, 1, 2, 3, 3] as const;
+const LAST_STEP: TourStep = 3;
 
 export function TourOverlay() {
   const { step, next, finish } = useTour();
@@ -25,7 +22,7 @@ export function TourOverlay() {
   useEffect(() => {
     if (step === null) return;
     const update = () => {
-      const el = document.querySelector(`[data-tour="${TOUR_NAV_TARGETS[TARGET_INDEX_BY_STEP[step]]}"]`);
+      const el = document.querySelector(`[data-tour="${TOUR_NAV_TARGETS[step]}"]`);
       setRect(el ? el.getBoundingClientRect() : null);
     };
     update();
@@ -45,7 +42,7 @@ export function TourOverlay() {
   if (step === null || !rect) return null;
 
   const centerX = rect.left + rect.width / 2;
-  const caption = isFinalStep ? t('landing.disclaimer') : t(NAV_CAPTION_KEYS[TARGET_INDEX_BY_STEP[step]]);
+  const caption = t(NAV_CAPTION_KEYS[step]);
 
   return (
     <>

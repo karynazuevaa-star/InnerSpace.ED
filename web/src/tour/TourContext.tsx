@@ -5,16 +5,15 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 // Rooms was missing from this tour entirely at first (requested directly
 // to fix: the "explore the site" tour skipped straight from Avatar to
 // Materials) - inserted at index 1 to match where it actually sits in the
-// nav, not appended at the end. Step 4 is a closing disclaimer with no
-// nav target of its own.
-export type TourStep = 0 | 1 | 2 | 3 | 4;
+// nav, not appended at the end. The tour ends on Tests, the last nav item.
+export type TourStep = 0 | 1 | 2 | 3;
 export const TOUR_NAV_TARGETS: readonly ['avatar', 'rooms', 'materials', 'tests'] = [
   'avatar',
   'rooms',
   'materials',
   'tests',
 ];
-const LAST_STEP: TourStep = 4;
+const LAST_STEP: TourStep = 3;
 
 interface TourContextValue {
   step: TourStep | null;

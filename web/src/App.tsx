@@ -13,11 +13,10 @@ import { useLanguage } from './i18n/LanguageContext';
 import { TourProvider } from './tour/TourContext';
 import { TourOverlay } from './components/TourOverlay';
 
-// Site-wide copyright line, requested directly - shown at the bottom of
-// every page (a fixed-height flex sibling of .app-main, not absolutely
-// positioned over it), including the full-screen 3D pages: .app-main is
-// flex:1 with min-height:0, so it just shrinks to leave room for this
-// instead of the footer overlapping the canvas.
+// Copyright line, requested directly - shown only on the landing page (a
+// fixed-height flex sibling of .app-main, not absolutely positioned over
+// it). .app-main is flex:1 with min-height:0, so it just shrinks to leave
+// room for this instead of the footer overlapping the canvas.
 function AppFooter() {
   const { t } = useLanguage();
   return (
@@ -53,6 +52,7 @@ function AppFooter() {
 function AppShell() {
   const location = useLocation();
   const isAvatarTool = location.pathname === '/avatar';
+  const isLanding = location.pathname === '/';
   return (
     <div className="app-shell">
       <TopNav />
@@ -80,7 +80,7 @@ function AppShell() {
           </Routes>
         )}
       </main>
-      <AppFooter />
+      {isLanding && <AppFooter />}
     </div>
   );
 }
