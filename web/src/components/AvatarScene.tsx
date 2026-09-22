@@ -29,6 +29,9 @@ interface OrbitHeldKeys {
 const ORBIT_ROTATE_SPEED = 1.1; // radians/second
 const ORBIT_ZOOM_SPEED = 2.6; // world units/second
 
+const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 0.95, 3.4);
+const DEFAULT_CAMERA_TARGET = new THREE.Vector3(0, 0.9, 0);
+
 // Reported directly: several psychologists using this tool struggled with
 // trackpad drag-to-orbit/pinch-to-zoom (two-finger gestures aren't obvious,
 // and OrbitControls gives no visual hint they exist at all). Arrow keys and
@@ -42,14 +45,34 @@ const ORBIT_ZOOM_SPEED = 2.6; // world units/second
 function KeyboardOrbitControl({
   controlsRef,
   heldKeys,
+  resetPending,
 }: {
   controlsRef: React.RefObject<React.ElementRef<typeof OrbitControls> | null>;
   heldKeys: React.RefObject<OrbitHeldKeys>;
+  resetPending: React.RefObject<boolean>;
 }) {
   const { camera } = useThree();
 
   useFrame((_, delta) => {
     const controls = controlsRef.current;
+    // Applied here (every frame, from inside the Canvas) instead of from
+    // the outer route-change effect calling controls.reset() directly -
+    // that effect fires in the OUTER React tree, which can run before
+    // R3F has finished mounting its own tree on a fresh Canvas, leaving
+    // controlsRef.current still null and the reset silently skipped
+    // (reported directly: opening /avatar landed on the wrong framing
+    // maybe half the time). A pending flag checked every frame has no
+    // such race - by the time any frame runs at all, camera and controls
+    // both exist. Setting position/target directly, rather than calling
+    // controls.reset(), also sidesteps needing OrbitControls' own
+    // construction-time snapshot to have captured the right values in
+    // the first place.
+    if (resetPending.current && controls) {
+      camera.position.copy(DEFAULT_CAMERA_POSITION);
+      controls.target.copy(DEFAULT_CAMERA_TARGET);
+      controls.update();
+      resetPending.current = false;
+    }
     const keys = heldKeys.current;
     if (!controls) return;
     const rotating = keys.rotateLeft !== keys.rotateRight;
@@ -87,6 +110,11 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
   const [hasError, setHasError] = useState(false);
   const controlsRef = useRef<React.ElementRef<typeof OrbitControls>>(null);
   const location = useLocation();
+  // Starts true so the very first mount also gets the explicit position/
+  // target set (see KeyboardOrbitControl's own comment) instead of
+  // relying on whatever OrbitControls' own initial construction happens
+  // to land on.
+  const resetPending = useRef(true);
   const heldKeys = useRef<OrbitHeldKeys>({
     rotateLeft: false,
     rotateRight: false,
@@ -139,13 +167,13 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
   // real unmount - see App.tsx's own comment on why) so without this,
   // whatever the user last zoomed/orbited to on a previous visit would
   // still be sitting there on the next one instead of the intended
-  // framing. OrbitControls.reset() restores whatever position/target the
-  // controls had at construction time, which is this Canvas's own
-  // `camera` prop below plus the `target` prop a few lines down - so
-  // this only needs to trigger the reset, not know the actual values.
+  // framing. Just flags the reset as pending - KeyboardOrbitControl
+  // (inside the Canvas, where camera/controls are guaranteed to exist)
+  // applies it on the next frame; see its own comment for why that's
+  // done there instead of directly from this effect.
   useEffect(() => {
     if (location.pathname === '/avatar') {
-      controlsRef.current?.reset();
+      resetPending.current = true;
     }
   }, [location.pathname]);
 
@@ -309,7 +337,7 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
           real macro photo of a face this close would have). 1.15 still
           lets someone see the face clearly, just not nose-to-nose. */}
       <OrbitControls ref={controlsRef} target={[0, 0.9, 0]} minDistance={1.15} maxDistance={6.5} />
-      <KeyboardOrbitControl controlsRef={controlsRef} heldKeys={heldKeys} />
+      <KeyboardOrbitControl controlsRef={controlsRef} heldKeys={heldKeys} resetPending={resetPending} />
       {/* Soft bloom so the lamp shade and the alcove's backlight actually
           read as glowing light sources instead of flat bright shapes - the
           luminance threshold is high enough that it only catches those
