@@ -75,7 +75,15 @@ export function applyBodyMorphs(bodyRoot: THREE.Object3D, state: BodyMorphState)
   applyPair(setNamed, 'weight_hips', Math.min(state.weight, 0.85));
   applyPair(setNamed, 'weight_torso_horiz', state.weight + state.belly * 0.7);
   applyPair(setNamed, 'weight_torso_depth', state.weight + state.belly * 0.5);
-  applyPair(setNamed, 'weight_arm', state.weight * 0.7 + state.arms);
+  // weight used to pull this target at 0.7:1 alongside arms itself (same
+  // as the torso targets) - at a very low weight, that alone ate most of
+  // the arms slider's own negative range, and at a very low weight PLUS
+  // arms pushed to its positive max, weight's own pull cancelled most of
+  // it out, leaving "full" arms barely thicker than default. Softened to
+  // 0.35 so the arms slider reads clearly across its whole range
+  // regardless of where weight sits, while weight alone still visibly
+  // thins the arms like every other limb/torso target.
+  applyPair(setNamed, 'weight_arm', state.weight * 0.35 + state.arms);
   applyPair(setNamed, 'weight_thigh', Math.min(state.weight * 0.8 + state.legs, 0.85));
 
   // MakeHuman's target library has exactly one shape that projects the
