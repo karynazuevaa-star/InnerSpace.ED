@@ -12,13 +12,20 @@ Usage:
     export R2_SECRET_ACCESS_KEY=...  # from that same token
     export R2_BUCKET_NAME=...        # the bucket you created
     pip3 install boto3
-    python3 scripts/upload-to-r2.py            # uploads models/, models-legacy/, audio/
-    python3 scripts/upload-to-r2.py --dry-run  # lists what would upload, no network writes
+    python3 scripts/upload-to-r2.py              # uploads models/, models-legacy/, audio/
+    python3 scripts/upload-to-r2.py --dry-run    # lists what would upload, no network writes
+    python3 scripts/upload-to-r2.py --force      # re-uploads every file, skipping nothing
+
+Skips any file whose content already matches what's in the bucket (compares
+the local file's MD5 against the object's ETag, which R2 sets to the MD5 for
+a plain single-part upload like this script does) - safe to re-run after
+changing only a few files instead of re-uploading everything each time.
 
 Credentials are read from the environment only - never pass them as
 command-line arguments (they'd end up in shell history) and never paste
 them into chat with an assistant.
 """
+import hashlib
 import mimetypes
 import os
 import sys
@@ -31,8 +38,17 @@ CONTENT_TYPES = {
 }
 
 
+def local_md5(path: str) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def main() -> None:
     dry_run = "--dry-run" in sys.argv
+    force = "--force" in sys.argv
 
     account_id = os.environ.get("R2_ACCOUNT_ID")
     access_key = os.environ.get("R2_ACCESS_KEY_ID")
@@ -77,6 +93,7 @@ def main() -> None:
         return
 
     import boto3  # imported here so --dry-run works without the dependency installed
+    from botocore.exceptions import ClientError
 
     client = boto3.client(
         "s3",
@@ -86,10 +103,24 @@ def main() -> None:
         region_name="auto",
     )
 
+    uploaded = 0
+    skipped = 0
     for i, (full_path, key) in enumerate(files, 1):
         ext = os.path.splitext(key)[1].lower()
         content_type = CONTENT_TYPES.get(ext) or mimetypes.guess_type(key)[0] or "application/octet-stream"
         size_mb = os.path.getsize(full_path) / 1024 / 1024
+
+        if not force:
+            try:
+                head = client.head_object(Bucket=bucket, Key=key)
+                remote_etag = head["ETag"].strip('"')
+                if remote_etag == local_md5(full_path):
+                    skipped += 1
+                    continue
+            except ClientError as e:
+                if e.response["Error"]["Code"] not in ("404", "NoSuchKey"):
+                    raise
+
         print(f"[{i}/{len(files)}] {key} ({size_mb:.1f} MB, {content_type})")
         client.upload_file(
             full_path,
@@ -100,8 +131,9 @@ def main() -> None:
                 "CacheControl": "public, max-age=31536000, immutable",
             },
         )
+        uploaded += 1
 
-    print("Done.")
+    print(f"Done. {uploaded} uploaded, {skipped} already up to date.")
 
 
 if __name__ == "__main__":
