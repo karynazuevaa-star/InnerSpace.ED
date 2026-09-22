@@ -96,8 +96,19 @@ export function applyBodyMorphs(bodyRoot: THREE.Object3D, state: BodyMorphState)
   // compensate, since turning the SLIDER up further wouldn't help (it
   // already reaches -1..1, applyPair's default clamp) - this is the
   // target's own influence value going further, not a wider UI range.
+  //
+  // A straight linear scale-up wasn't enough on its own - reported again
+  // after that fix: 1.6x makes the slider's top end read clearly, but
+  // 0.6 (60% of the way there) still looked like barely anything, since
+  // 60% of a linear ramp to 1.6 is only ~1.0 - about where the ORIGINAL,
+  // "barely changes" complaint already sat. Bending the curve with
+  // Math.pow (exponent < 1) instead front-loads the visible change: 0.6
+  // on the slider now reaches most of the way to the visual effect that
+  // used to require 1.0, so the middle of the range doesn't read as flat.
   const ARM_MAX_MAGNITUDE = 1.6;
-  const armSignal = state.weight * 0.35 + state.arms * ARM_MAX_MAGNITUDE;
+  const ARM_CURVE_EXPONENT = 0.55;
+  const armsCurved = Math.sign(state.arms) * Math.abs(state.arms) ** ARM_CURVE_EXPONENT;
+  const armSignal = state.weight * 0.35 + armsCurved * ARM_MAX_MAGNITUDE;
   applyPair(setNamed, 'weight_arm_upper_l', armSignal, ARM_MAX_MAGNITUDE);
   applyPair(setNamed, 'weight_arm_upper_r', armSignal, ARM_MAX_MAGNITUDE);
   applyPair(setNamed, 'weight_arm_lower_l', armSignal, ARM_MAX_MAGNITUDE);
