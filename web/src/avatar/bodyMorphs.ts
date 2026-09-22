@@ -32,8 +32,8 @@ export const DEFAULT_BODY_MORPHS: BodyMorphState = {
   face: 0,
 };
 
-function applyPair(setter: (name: string, value: number) => void, base: string, signed: number) {
-  const v = THREE.MathUtils.clamp(signed, -1, 1);
+function applyPair(setter: (name: string, value: number) => void, base: string, signed: number, maxMagnitude = 1) {
+  const v = THREE.MathUtils.clamp(signed, -maxMagnitude, maxMagnitude);
   setter(`${base}_incr`, Math.max(0, v));
   setter(`${base}_decr`, Math.max(0, -v));
 }
@@ -88,11 +88,20 @@ export function applyBodyMorphs(bodyRoot: THREE.Object3D, state: BodyMorphState)
   // see pipeline/scripts/02_generate_body.py's own comment on why a
   // single upper-arm-only target read as pinched at the elbow and
   // "pumped" rather than fat at the top of its range.
-  const armSignal = state.weight * 0.35 + state.arms;
-  applyPair(setNamed, 'weight_arm_upper_l', armSignal);
-  applyPair(setNamed, 'weight_arm_upper_r', armSignal);
-  applyPair(setNamed, 'weight_arm_lower_l', armSignal);
-  applyPair(setNamed, 'weight_arm_lower_r', armSignal);
+  //
+  // Even at a full 1.0 influence, MakeHuman's own *-fat targets are a much
+  // smaller visual delta than e.g. the torso girth targets - reported
+  // directly as "arms barely change at all" even near the slider's own
+  // max. Driven past the shape key's nominal 0..1 range (up to 1.6) to
+  // compensate, since turning the SLIDER up further wouldn't help (it
+  // already reaches -1..1, applyPair's default clamp) - this is the
+  // target's own influence value going further, not a wider UI range.
+  const ARM_MAX_MAGNITUDE = 1.6;
+  const armSignal = state.weight * 0.35 + state.arms * ARM_MAX_MAGNITUDE;
+  applyPair(setNamed, 'weight_arm_upper_l', armSignal, ARM_MAX_MAGNITUDE);
+  applyPair(setNamed, 'weight_arm_upper_r', armSignal, ARM_MAX_MAGNITUDE);
+  applyPair(setNamed, 'weight_arm_lower_l', armSignal, ARM_MAX_MAGNITUDE);
+  applyPair(setNamed, 'weight_arm_lower_r', armSignal, ARM_MAX_MAGNITUDE);
   applyPair(setNamed, 'weight_thigh', Math.min(state.weight * 0.8 + state.legs, 0.85));
 
   // MakeHuman's target library has exactly one shape that projects the
