@@ -186,10 +186,12 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
             requested directly, with a reference screenshot of a product
             viewer's own rotate hint: a straight arrow reads as "move/pan",
             a curved one reads as "spin the model", which is what this
-            button actually does. */}
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <polyline points="1 4 1 10 7 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            button actually does. Bolder/filled version (thick stroke arc +
+            a solid triangular head, not a thin outline) requested next, to
+            read more clearly as "grab and turn" at a glance. */}
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M 8.83 5.2 A 7.5 7.5 0 1 0 17.3 6.7" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+          <polygon points="0,-4.5 8,0 0,4.5" transform="translate(8.83,5.2) rotate(155)" fill="currentColor" />
         </svg>
       </button>
       <button
@@ -217,9 +219,9 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
         title={t('scene.controls.rotateRight')}
         {...bindOrbitButton('rotateRight')}
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-          <polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M 15.17 5.2 A 7.5 7.5 0 1 1 6.7 6.7" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" />
+          <polygon points="0,-4.5 8,0 0,4.5" transform="translate(15.17,5.2) rotate(25)" fill="currentColor" />
         </svg>
       </button>
     </div>
