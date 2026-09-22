@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { applyBodyMorphs, type BodyMorphState } from '../avatar/bodyMorphs';
 import { useAvatarContext } from '../avatar/AvatarContext';
+import { assetUrl } from '../lib/assetUrl';
 
 /**
  * LEGACY comparison version of Body - see pages/AvatarToolPageLegacy.tsx.
@@ -11,7 +12,7 @@ import { useAvatarContext } from '../avatar/AvatarContext';
  * IdleAnimation at all.
  */
 export function BodyLegacy({ morphs }: { morphs: BodyMorphState }) {
-  const { scene } = useGLTF('/models-legacy/body.glb');
+  const { scene } = useGLTF(assetUrl('/models-legacy/body.glb'));
   const { setHeadBone, registerPosableScene, unregisterPosableScene } = useAvatarContext();
   const rootRef = useRef<THREE.Group>(null);
 
@@ -39,4 +40,4 @@ export function BodyLegacy({ morphs }: { morphs: BodyMorphState }) {
   return <primitive ref={rootRef} object={scene} dispose={null} />;
 }
 
-useGLTF.preload('/models-legacy/body.glb');
+useGLTF.preload(assetUrl('/models-legacy/body.glb'));

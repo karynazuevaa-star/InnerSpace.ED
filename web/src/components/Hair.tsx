@@ -3,11 +3,12 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAttachToHead, useAvatarContext } from '../avatar/AvatarContext';
 import { makeHairTintable } from '../avatar/hairTint';
+import { assetUrl } from '../lib/assetUrl';
 
 export type HairStyle = 'long' | 'medium' | 'short';
 
 export function Hair({ style, color }: { style: HairStyle; color: string }) {
-  const { scene } = useGLTF(`/models/hair/${style}.glb?v=22`);
+  const { scene } = useGLTF(assetUrl(`/models/hair/${style}.glb?v=24`));
   const { headBone } = useAvatarContext();
 
   useEffect(() => {
@@ -29,15 +30,19 @@ export function Hair({ style, color }: { style: HairStyle; color: string }) {
       mat.depthTest = true;
       mat.depthWrite = true;
       mat.alphaTest = 0.5;
-      // A small polygonOffset nudges the hair just enough to win the depth
-      // test against the near-coincident scalp underneath, closing the
-      // crown gap that reads as "see-through" hair. Kept deliberately
-      // modest - a stronger bias closed the gap fully but also made hair
-      // strand tips win against the torso/shirt they should stay behind,
-      // reading as thin dark lines bleeding through the fabric.
+      // polygonOffset nudges the hair just enough to win the depth test
+      // against the near-coincident scalp underneath, closing the crown/
+      // hairline gap that read as jagged patches of bare forehead showing
+      // through the fringe. An earlier, much smaller bias (-1/-1) only
+      // partly closed it - still visible head-on at the hairline, worse
+      // from directly above the crown. -4/-4 closes it fully at every
+      // angle tested (front, top-down, close on the face) without the
+      // torso strand-tip bleed-through a stronger bias caused previously;
+      // re-check the shoulder/collar area specifically if this needs to go
+      // higher still, since that regression is the actual ceiling here.
       mat.polygonOffset = true;
-      mat.polygonOffsetFactor = -1;
-      mat.polygonOffsetUnits = -1;
+      mat.polygonOffsetFactor = -4;
+      mat.polygonOffsetUnits = -4;
       // Mipmapping an alpha-cutout texture like this one (fine strand gaps,
       // one large fully-transparent background region) blurs the alpha
       // channel at lower mip levels - which mip level a given fragment

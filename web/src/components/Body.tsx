@@ -4,9 +4,10 @@ import * as THREE from 'three';
 import { applyBodyMorphs, type BodyMorphState } from '../avatar/bodyMorphs';
 import { useAvatarContext } from '../avatar/AvatarContext';
 import { primeIdleAnimationRestPose } from '../avatar/idleAnimation';
+import { assetUrl } from '../lib/assetUrl';
 
 export function Body({ morphs }: { morphs: BodyMorphState }) {
-  const { scene } = useGLTF('/models/body.glb?v=10');
+  const { scene } = useGLTF(assetUrl('/models/body.glb?v=13'));
   const { setHeadBone, registerPosableScene, unregisterPosableScene } = useAvatarContext();
   const rootRef = useRef<THREE.Group>(null);
 
@@ -44,4 +45,4 @@ export function Body({ morphs }: { morphs: BodyMorphState }) {
   return <primitive ref={rootRef} object={scene} dispose={null} />;
 }
 
-useGLTF.preload('/models/body.glb?v=10');
+useGLTF.preload(assetUrl('/models/body.glb?v=13'));

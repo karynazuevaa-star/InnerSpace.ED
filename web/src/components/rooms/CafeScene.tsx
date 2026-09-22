@@ -1,13 +1,21 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { useNavigate } from 'react-router-dom';
-import { CafeEnvironment, MENU_FOOD_ITEMS, type MenuFoodId } from './CafeEnvironment';
+import {
+  CafeEnvironment,
+  MENU_FOOD_ITEMS,
+  TABLE_CENTERS,
+  TABLE_DRAG_MAX_RADIUS,
+  getDefaultFoodSlotPosition,
+  type MenuFoodId,
+} from './CafeEnvironment';
 import { NpcAvatar, type NpcConfig } from './NpcAvatar';
-import { PlayerControls, type RoomBounds, type Seat } from './PlayerControls';
-import { SceneLoader } from '../SceneLoader';
+import { PlayerControls, type RoomBounds, type Seat, type DraggableFoodItem } from './PlayerControls';
+import { RoomLoader } from '../RoomLoader';
 import { SceneErrorBoundary } from '../SceneErrorBoundary';
 import { SceneErrorScreen } from '../SceneErrorScreen';
 import { useLanguage } from '../../i18n/LanguageContext';
+import { assetUrl } from '../../lib/assetUrl';
 import type { ConversationConfig } from '../../avatar/idleAnimation';
 
 // Builds one `ConversationConfig` per seat, sharing the same `peers` list
@@ -346,7 +354,9 @@ const GUIDE_STEP_KEYS = [
  * AvatarScene.tsx) - the NPCs are pre-baked (see NpcAvatar.tsx and
  * pipeline/scripts/09_bake_npc_presets.py), sharing only generic,
  * non-visual avatar rigging infra (AvatarContext, idleAnimation's pose
- * helpers) and the SceneLoader overlay, none of which this room modifies.
+ * helpers), none of which this room modifies. Its own loading overlay
+ * (RoomLoader, below) is a separate component from AvatarScene/BrainViewer's
+ * SceneLoader - see RoomLoader.tsx's own comment for why.
  */
 export function CafeScene() {
   const { t } = useLanguage();
@@ -371,6 +381,57 @@ export function CafeScene() {
   const [tableOrders, setTableOrders] = useState<MenuFoodId[][]>([[], []]);
   const seatedTable = seatedSeat !== null ? seatedSeat >> 1 : null;
 
+  // Drag-to-reposition for ordered dishes, requested directly: a dish
+  // starts at TableOrder's own fixed default slot (unchanged), but once
+  // it's loaded in the player can nudge it around their own table -
+  // closer, further, wherever. Per-table map of itemId -> a custom LOCAL
+  // [x,z] offset from that table's own center; an item with no entry here
+  // just uses the default slot, same as before this existed. The actual
+  // drag gesture lives in PlayerControls.tsx (it already owns every other
+  // pointer interaction in this room) - this only stores the result and
+  // feeds both it and CafeEnvironment.tsx's 3D props from the same state.
+  const [foodPositions, setFoodPositions] = useState<Partial<Record<MenuFoodId, [number, number]>>[]>([{}, {}]);
+  // Whether the player has ever actually dragged a dish - once they have,
+  // the "you can do this" hint ring (below) has done its job and stops
+  // showing, on any table.
+  const [hasDraggedFood, setHasDraggedFood] = useState(false);
+
+  const handleFoodDrag = useCallback((table: number, itemId: string, x: number, z: number) => {
+    setFoodPositions((prev) => prev.map((items, i) => (i === table ? { ...items, [itemId]: [x, z] } : items)));
+    setHasDraggedFood(true);
+  }, []);
+
+  // The one item that gets the pulse-ring hint (see CafeEnvironment.tsx's
+  // FoodDragHint) - only the table the player is CURRENTLY sitting at
+  // (matches drag-ability itself, which is also seated-only - see
+  // PlayerControls.tsx's onPointerDown), only its first slot-ordered item
+  // (MENU_FOOD_ITEMS' own fixed order, i.e. whichever dish visually reads
+  // as "the first one" on the table, not necessarily the first one picked
+  // from the menu), and only until the player has dragged anything once.
+  const dragHintItem =
+    seatedTable !== null && !hasDraggedFood
+      ? (() => {
+          const firstItem = MENU_FOOD_ITEMS.find((item) => tableOrders[seatedTable]?.includes(item.id));
+          return firstItem ? { table: seatedTable, itemId: firstItem.id } : null;
+        })()
+      : null;
+
+  // Current world position of every ordered dish on the table the player
+  // is sitting at, for PlayerControls.tsx's own "what's under the click"
+  // check - empty (and the drag feature inert) while standing, matching
+  // drag-ability itself being seated-only.
+  const draggableFoodItems: DraggableFoodItem[] =
+    seatedTable !== null
+      ? (tableOrders[seatedTable] ?? []).map((itemId) => {
+          const center = TABLE_CENTERS[seatedTable];
+          const custom = foodPositions[seatedTable]?.[itemId];
+          const position: [number, number, number] = custom
+            ? [center[0] + custom[0], center[1], center[2] + custom[1]]
+            : getDefaultFoodSlotPosition(itemId, center);
+          return { table: seatedTable, itemId, position };
+        })
+      : [];
+
   // Ambient cafe sound, requested directly - a quiet instrumental music bed
   // plus a separate chatter/dishes ambience layer (mimicking other people
   // talking around you), both looped low in the background rather than one
@@ -386,10 +447,10 @@ export function CafeScene() {
   const musicRef = useRef<HTMLAudioElement | null>(null);
   const ambienceRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
-    const music = new Audio('/audio/cafe/music.mp3');
+    const music = new Audio(assetUrl('/audio/cafe/music.mp3'));
     music.loop = true;
     musicRef.current = music;
-    const ambience = new Audio('/audio/cafe/ambience.mp3');
+    const ambience = new Audio(assetUrl('/audio/cafe/ambience.mp3'));
     ambience.loop = true;
     ambienceRef.current = ambience;
 
@@ -507,7 +568,13 @@ export function CafeScene() {
 
   return (
     <>
-      {hasError ? <SceneErrorScreen /> : <SceneLoader label={t('loading.room')} />}
+      {hasError ? (
+        <SceneErrorScreen />
+      ) : (
+        <RoomLoader
+          captions={[t('loading.room'), t('cafe.loading.food'), t('cafe.loading.people'), t('cafe.loading.light')]}
+        />
+      )}
       {/* Moved in from CafeRoomPage.tsx (requested directly - the back
           button needs to share `handleExit` above, which needs guide
           state that only exists in here) - same "<- Rooms" pill/hint-text
@@ -532,7 +599,12 @@ export function CafeScene() {
         />
         <SceneErrorBoundary onError={() => setHasError(true)}>
           <Suspense fallback={null}>
-            <CafeEnvironment tableOrders={tableOrders} onDoorClick={handleExit} />
+            <CafeEnvironment
+              tableOrders={tableOrders}
+              foodPositions={foodPositions}
+              dragHintItem={dragHintItem}
+              onDoorClick={handleExit}
+            />
             {NPCS.map((npc, i) => (
               <NpcAvatar key={i} config={npc} />
             ))}
@@ -545,6 +617,10 @@ export function CafeScene() {
           seats={EMPTY_TABLE_SEATS}
           onNearSeatChange={setNearSeat}
           onSitChange={setSeatedSeat}
+          draggableFoodItems={draggableFoodItems}
+          tableCenters={TABLE_CENTERS}
+          foodDragRadius={TABLE_DRAG_MAX_RADIUS}
+          onFoodDrag={handleFoodDrag}
         />
       </Canvas>
       {/* Top-right stack: sound controls above the specialist's hints
@@ -686,8 +762,8 @@ export function CafeScene() {
       )}
       {/* The sit-down hint, requested directly - only shown while standing
           (seatedSeat null) AND close enough to click a seat. Doesn't need
-          the SceneLoader's careful positioning since it's just a small
-          pill like rooms.cafeHint's own, not a full panel. */}
+          RoomLoader's careful full-overlay positioning since it's just a
+          small pill like rooms.cafeHint's own, not a full panel. */}
       {nearSeat !== null && seatedSeat === null && <div className="sit-hint">{t('cafe.sit.hint')}</div>}
       {/* The table-menu overlay - shown for as long as the player is
           sitting, at whichever of the two empty tables they sat at.

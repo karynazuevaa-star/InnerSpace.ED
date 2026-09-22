@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTour, TOUR_NAV_TARGETS, type TourStep } from '../tour/TourContext';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -16,8 +17,10 @@ const LAST_STEP: TourStep = 3;
 export function TourOverlay() {
   const { step, next, finish } = useTour();
   const { t } = useLanguage();
+  const location = useLocation();
   const [rect, setRect] = useState<DOMRect | null>(null);
   const isFinalStep = step === LAST_STEP;
+  const tourStartPath = useRef<string | null>(null);
 
   useEffect(() => {
     if (step === null) return;
@@ -38,6 +41,29 @@ export function TourOverlay() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [step, finish]);
+
+  // Dismiss instead of lingering if a visitor ignores the tooltip's own
+  // Next button and browses the tabs directly instead - reported directly,
+  // since without this the tooltip just kept pointing at whatever nav item
+  // it was on, now stranded on a page the tour never expected. The tour
+  // itself never navigates - start()/next() only move the tooltip, LandingPage's
+  // "Explore the site" button stays on "/" - so the only page it should
+  // ever consider "on track" is the one it began on; any other pathname
+  // showing up while a step is active is the visitor navigating on their
+  // own, not the tour doing it.
+  useEffect(() => {
+    if (step === null) {
+      tourStartPath.current = null;
+      return;
+    }
+    if (tourStartPath.current === null) {
+      tourStartPath.current = location.pathname;
+      return;
+    }
+    if (location.pathname !== tourStartPath.current) {
+      finish();
+    }
+  }, [step, location.pathname, finish]);
 
   if (step === null || !rect) return null;
 

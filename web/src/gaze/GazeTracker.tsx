@@ -3,6 +3,7 @@ import { Calibration } from './Calibration';
 import { startGazeTracking, clearGazeCalibration, type GazeClientHandle } from './webgazerClient';
 import { emitGaze } from './gazeBus';
 import { useLanguage } from '../i18n/LanguageContext';
+import { InfoTooltip } from '../components/InfoTooltip';
 import type { GazeStatus } from './gazeTypes';
 
 export function GazeTracker({
@@ -91,7 +92,10 @@ export function GazeTracker({
 
   return (
     <div className="control-group">
-      <h3>{t('gaze.heading')}</h3>
+      <div className="control-group-heading-row">
+        <h3>{t('gaze.heading')}</h3>
+        <InfoTooltip text={t('gaze.infoTooltip')} />
+      </div>
       <p className="gaze-note">{t('gaze.note')}</p>
       {status === 'idle' && (
         <button className="gaze-button" onClick={begin}>

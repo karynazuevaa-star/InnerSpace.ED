@@ -63,6 +63,22 @@ const originalTransforms = new WeakMap<
   { position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 }
 >();
 
+// Head's rest (bind-pose) local transform, captured lazily the first time
+// ANY object is ever attached to a given head bone instance. That first
+// attach always happens on initial mount, before idleAnimation's
+// mouse-look has had any chance to turn the head - it starts inactive
+// (mouseIdleSeconds begins at Infinity, so lookActive is false until the
+// cursor actually moves) - so this snapshot is reliably the true rest
+// pose. attachToHead below uses it instead of head's LIVE transform when
+// computing a new attach: otherwise Object3D.attach() bakes in whatever
+// extra rotation the head happens to be holding that frame (reported
+// directly - switching hairstyle while the avatar is looking to the side
+// left the new hair sitting at the wrong angle, drifting further out of
+// alignment as the head kept moving, since the mismatch between "rotation
+// baked in at attach time" and "head's current rotation" doesn't correct
+// itself).
+const headRestTransform = new WeakMap<THREE.Object3D, { position: THREE.Vector3; quaternion: THREE.Quaternion }>();
+
 /** Reparents `object` onto `head`, preserving its original world transform. */
 function attachToHead(head: THREE.Object3D, object: THREE.Object3D) {
   let original = originalTransforms.get(object);
@@ -76,9 +92,24 @@ function attachToHead(head: THREE.Object3D, object: THREE.Object3D) {
   object.scale.copy(original.scale);
   object.updateMatrix();
 
+  let headRest = headRestTransform.get(head);
+  if (!headRest) {
+    headRest = { position: head.position.clone(), quaternion: head.quaternion.clone() };
+    headRestTransform.set(head, headRest);
+  }
+  const headLivePosition = head.position.clone();
+  const headLiveQuaternion = head.quaternion.clone();
+  head.position.copy(headRest.position);
+  head.quaternion.copy(headRest.quaternion);
   head.updateWorldMatrix(true, false);
   object.updateMatrixWorld(true);
   head.attach(object);
+  // Restore the head's actual current pose immediately - the rest pose
+  // above only needed to exist for the instant attach() computed object's
+  // new local transform.
+  head.position.copy(headLivePosition);
+  head.quaternion.copy(headLiveQuaternion);
+  head.updateWorldMatrix(true, false);
 }
 
 /**

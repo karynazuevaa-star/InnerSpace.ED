@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useEffect, useRef } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useAvatarContext } from './AvatarContext';
 
@@ -563,8 +563,90 @@ export function primeIdleAnimationRestPose(scene: THREE.Object3D) {
   }
 }
 
+// How the head follows the cursor, and how long the cursor has to sit
+// still before it eases back to its neutral rest orientation.
+//
+// Three earlier versions of this were tried. v1: head-only rotation with no
+// eye involvement read as "the eyes still look straight ahead" regardless
+// of how far the head turned - a fixed, doll-like stare that doesn't
+// actually redirect with the head (reported directly, twice, with
+// before/after crops of the eye socket proving the iris never moved
+// relative to the eyelids across a full head turn). v2 added independent
+// rotation of the rig's own eyeL/eyeR bones and was reported as looking
+// "natuzhno" (strained/forced); at the time that was pinned on the sibling
+// Innerspace project's own mouse-look (src/components/AvatarViewer3D.tsx),
+// which deliberately avoids rotating its eye mesh due to an off-center
+// pivot in THAT project's asset. v3 reverted to head-only to match it. But
+// that pivot theory was never actually verified against THIS rig's own
+// eyes - and it no longer applies regardless: eyes.glb doesn't exist
+// anymore, the eye geometry is proper-skinned into body.glb by
+// pipeline/scripts/02_generate_body.py's fit_rigid_bodypart() with real
+// bone weights on the SAME armature the sibling project doesn't share. The
+// eyeL/eyeR bones sit several joints below head in that armature (head ->
+// special06.L/R -> special05.L/R -> eye.L/R, MakeHuman's standard eye-aim
+// chain) with a pivot at the eyeball's own center, built for exactly this.
+// Back to v2's independent eye rotation, layered on top of the head turn
+// instead of replacing it - verified this time by rendering the actual
+// eye socket close-up before and after (see EYE_LOOK_MAX_YAW_DEGREES).
+//
+// What actually made the sibling implementation read as more natural,
+// ported here: (1) an idle "boredom" drift - if the cursor sits within a
+// small radius for a few seconds, the gaze target blends away from the
+// literal cursor position toward a slow, small wander instead of holding
+// a fixed off-center stare, which is the single biggest tell of "a program
+// is doing this" in any cursor-follow gaze. (2) An asymmetric pitch range
+// instead of a symmetric one - that project's rig read worse looking down
+// than up, so its range was tuned tight downward and generous upward.
+// This rig has the opposite problem (its rest pose already tilts the chin
+// back slightly - see AvatarScene.tsx's own camera-distance comment), so
+// the asymmetry here runs the other way: tight looking up (to not pile
+// onto that existing tilt) and more generous looking down.
+const HEAD_LOOK_MAX_YAW_DEGREES = 16;
+const HEAD_LOOK_MAX_PITCH_UP_DEGREES = 5;
+const HEAD_LOOK_MAX_PITCH_DOWN_DEGREES = 14;
+// The eyes carry most of the gaze - real eye movement leads head movement
+// and covers a wider range, with the head only partially following - so
+// these run bigger than HEAD_LOOK_MAX_*_DEGREES rather than matching them.
+// Applied on top of the head's own rotation (eyeL/eyeR sit several joints
+// below head in the skeleton - see the long comment above), so the actual
+// visible eye swing on screen is head+eye combined, not eye alone.
+const EYE_LOOK_MAX_YAW_DEGREES = 22;
+const EYE_LOOK_MAX_PITCH_UP_DEGREES = 11;
+const EYE_LOOK_MAX_PITCH_DOWN_DEGREES = 18;
+const MOUSE_LOOK_IDLE_SECONDS = 2.5;
+// Idle "boredom" drift - see the long comment above. Below the dwell
+// trigger, the gaze target is just the cursor position. Past it, boredom
+// ramps up over GAZE_BOREDOM_RAMP_SECONDS and blends the target toward a
+// slow wander; any real cursor movement (beyond GAZE_DWELL_RESET_DISTANCE
+// from the position boredom last started accumulating from) snaps boredom
+// back down fast (GAZE_BOREDOM_DECAY_PER_SECOND), so live tracking resumes
+// immediately rather than fighting the drift for a moment first.
+const GAZE_DWELL_TRIGGER_SECONDS = 4;
+const GAZE_BOREDOM_RAMP_SECONDS = 2.5;
+const GAZE_BOREDOM_DECAY_PER_SECOND = 4;
+const GAZE_DWELL_RESET_DISTANCE = 0.08;
+// A much snappier spring than HEAD_TURN_SPRING_FREQUENCY below - that one
+// is tuned for SeatedPose's conversation gaze, where the target only
+// changes at multi-second turn-taking boundaries, so a slow ease has
+// plenty of time to fully catch up between changes. The mouse position is
+// a constantly-moving target instead - with the same slow spring the head
+// was always chasing several frames behind and never got within a few
+// degrees of the actual cursor position, reading as "barely moves" even
+// though the underlying target angle was correct. Damping is still 1
+// (critically damped, no overshoot/bounce) so the motion still reads as
+// smooth, not twitchy - only the frequency (how fast) went up.
+const MOUSE_LOOK_SPRING_FREQUENCY = 6;
+const MOUSE_LOOK_SPRING_DAMPING = 1;
+// The avatar has a single fixed orientation (it never rotates to face a
+// seat or a peer the way NPCs do), so its look-at math can use constant
+// world axes instead of the per-character forward vector SeatedPose's
+// conversation gaze derives at runtime.
+const AVATAR_UP = new THREE.Vector3(0, 1, 0);
+const AVATAR_RIGHT = new THREE.Vector3(-1, 0, 0);
+
 export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: number; legs: number }) {
   const { posableScenes } = useAvatarContext();
+  const canvasEl = useThree((state) => state.gl.domElement);
 
   // --- weight-shifting stance (hips/knees/spine) ---
   const targetSupport = useRef(-1);
@@ -591,10 +673,70 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
   const rightFingerTarget = useRef(0.65);
   const nextLeftFingerMove = useRef(1.2 + Math.random() * 2.2);
   const nextRightFingerMove = useRef(1.8 + Math.random() * 2.4);
-  const scratchSide = useRef<'L' | 'R' | null>(null);
-  const scratchStartedAt = useRef(0);
-  const scratchEndsAt = useRef(0);
-  const nextScratchAt = useRef(38 + Math.random() * 4);
+
+  // --- head look-at-cursor ---
+  // Normalized mouse position (-1..1, +1 = right/top) and how long it's
+  // been since the last real movement. Listens on the CANVAS element only,
+  // not the whole window - an earlier version tracked window-wide so the
+  // avatar kept "looking" even while the cursor sat over the slider panel,
+  // but that read as the avatar craning its head toward the UI for no
+  // in-scene reason (reported directly, with screenshots - most visible
+  // switching hairstyles, since that panel sits at almost the same height
+  // as the head and pulls it into a visibly awkward turn+tilt while
+  // picking one). Scoping to the canvas means the head only ever reacts to
+  // the cursor being somewhere IN the 3D scene, and idles back to neutral
+  // (mouseIdleSeconds still counts up with no listener resetting it) the
+  // moment the cursor leaves it for the panel - exactly the cases that
+  // looked wrong before. Coordinates are relative to the canvas's own
+  // bounding rect, not the window, since the canvas doesn't fill it.
+  // A small movement threshold (MOUSE_MOVE_EPSILON) stops the idle timer
+  // from constantly resetting on the sub-pixel jitter of a resting hand/
+  // trackpad, so "stopped moving" actually means stopped.
+  const mouseTarget = useRef({ x: 0, y: 0 });
+  const mouseIdleSeconds = useRef(Infinity);
+  // Spring on the normalized (-1..1) cursor position itself, not on a
+  // pre-scaled angle - the eased result gets scaled by HEAD_LOOK_MAX_*
+  // afterward, and yaw/pitch use different max-degree constants (and pitch
+  // itself is asymmetric up vs down), so keeping the spring in normalized
+  // units first keeps all of that scaling in one place instead of baked
+  // into the spring target itself.
+  const lookSpring = useRef({
+    x: { value: 0, velocity: 0 } as SpringMotion,
+    y: { value: 0, velocity: 0 } as SpringMotion,
+  });
+  // Idle "boredom" drift state - see GAZE_DWELL_TRIGGER_SECONDS's own
+  // comment. gazeAnchor is the cursor position boredom last started
+  // accumulating dwell time from (not necessarily where the cursor is
+  // right now - only real movement away from it resets the clock).
+  const gazeAnchor = useRef({ x: 0, y: 0 });
+  const gazeDwellSeconds = useRef(0);
+  const gazeBoredom = useRef(0);
+
+  useEffect(() => {
+    const MOUSE_MOVE_EPSILON = 3;
+    let lastClientX: number | null = null;
+    let lastClientY: number | null = null;
+    const onMouseMove = (e: MouseEvent) => {
+      if (
+        lastClientX !== null &&
+        lastClientY !== null &&
+        Math.abs(e.clientX - lastClientX) < MOUSE_MOVE_EPSILON &&
+        Math.abs(e.clientY - lastClientY) < MOUSE_MOVE_EPSILON
+      ) {
+        return;
+      }
+      lastClientX = e.clientX;
+      lastClientY = e.clientY;
+      const rect = canvasEl.getBoundingClientRect();
+      mouseTarget.current = {
+        x: THREE.MathUtils.clamp(((e.clientX - rect.left) / rect.width) * 2 - 1, -1, 1),
+        y: THREE.MathUtils.clamp(-(((e.clientY - rect.top) / rect.height) * 2 - 1), -1, 1),
+      };
+      mouseIdleSeconds.current = 0;
+    };
+    canvasEl.addEventListener('mousemove', onMouseMove);
+    return () => canvasEl.removeEventListener('mousemove', onMouseMove);
+  }, [canvasEl]);
 
   useFrame(({ clock }, frameDelta) => {
     const scenes = posableScenes;
@@ -652,11 +794,11 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
 
     // Relaxed arms/hands
     armElapsed.current += delta;
-    if (armElapsed.current >= nextLeftArmMove.current && scratchSide.current !== 'L') {
+    if (armElapsed.current >= nextLeftArmMove.current) {
       leftArmTarget.current = -3.5 + Math.random() * 3;
       nextLeftArmMove.current = armElapsed.current + 2 + Math.random() * 2;
     }
-    if (armElapsed.current >= nextRightArmMove.current && scratchSide.current !== 'R') {
+    if (armElapsed.current >= nextRightArmMove.current) {
       rightArmTarget.current = -3.5 + Math.random() * 3;
       nextRightArmMove.current = armElapsed.current + 2.2 + Math.random() * 2.1;
     }
@@ -676,43 +818,6 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
     springStep(leftFingers.current, leftFingerTarget.current, delta, 3, 1);
     springStep(rightFingers.current, rightFingerTarget.current, delta, 2.7, 1);
 
-    if (!scratchSide.current && armElapsed.current >= nextScratchAt.current) {
-      const candidates: ('L' | 'R')[] = [];
-      if (Math.abs(leftArm.current.value + 1.1) < 0.55) candidates.push('L');
-      if (Math.abs(rightArm.current.value + 1.1) < 0.55) candidates.push('R');
-      if (candidates.length) {
-        const side = candidates[Math.floor(Math.random() * candidates.length)];
-        scratchSide.current = side;
-        scratchStartedAt.current = armElapsed.current;
-        scratchEndsAt.current = armElapsed.current + 1.8 + Math.random() * 0.8;
-        if (side === 'L') {
-          leftArmTarget.current = -1.1;
-          leftArm.current.velocity *= 0.45;
-        } else {
-          rightArmTarget.current = -1.1;
-          rightArm.current.velocity *= 0.45;
-        }
-      }
-    } else if (scratchSide.current && armElapsed.current >= scratchEndsAt.current) {
-      scratchSide.current = null;
-      nextScratchAt.current = armElapsed.current + 38 + Math.random() * 4;
-    }
-
-    const scratchDuration = Math.max(0.001, scratchEndsAt.current - scratchStartedAt.current);
-    const scratchProgress = THREE.MathUtils.clamp((armElapsed.current - scratchStartedAt.current) / scratchDuration, 0, 1);
-    const scratchEnvelope = scratchSide.current
-      ? Math.min(
-          THREE.MathUtils.smoothstep(scratchProgress, 0, 0.2),
-          1 - THREE.MathUtils.smoothstep(scratchProgress, 0.78, 1),
-        )
-      : 0;
-    const scratchContact = scratchSide.current
-      ? Math.min(
-          THREE.MathUtils.smoothstep(scratchProgress, 0.22, 0.36),
-          1 - THREE.MathUtils.smoothstep(scratchProgress, 0.78, 0.94),
-        )
-      : 0;
-    const scratchStroke = Math.sin((armElapsed.current - scratchStartedAt.current) * 15);
     // As the hips/thighs widen (weight, butt, or legs), the relaxed-arm
     // baseline alone isn't enough clearance and the hands/wrists start
     // clipping into them - swing the whole arm further out from the
@@ -723,33 +828,18 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
     RELAXED_ARM_BONES.forEach(({ name, degrees }) => {
       let [x, y, z] = degrees;
       const isLeft = name.endsWith('L');
-      const isScratchingHand = scratchSide.current === (isLeft ? 'L' : 'R');
-      const scratch = isScratchingHand ? scratchEnvelope : 0;
-      const scratchGrip = (isScratchingHand ? scratchContact : 0) * (0.7 + (scratchStroke * 0.5 + 0.5) * 0.3);
       const armMotion = isLeft ? leftArm.current.value : rightArm.current.value;
 
       if (name.startsWith('upperarm01')) {
         x += armMotion * 1.4;
         y += armMotion * 0.14;
-        z += scratch * (isLeft ? -0.85 : 0.85);
         z += bodyClearance * (isLeft ? 1 : -1);
-        x -= scratch * 1.5;
       } else if (name.startsWith('lowerarm01')) {
         x += (armMotion + 3.5) * 2.5;
-        x -= scratch * (3.2 - scratchStroke * 0.25);
-        z += scratch * (isLeft ? -0.65 : 0.65);
       } else if (name.startsWith('wrist')) {
         const wristMotion = isLeft ? leftWrist.current.value : rightWrist.current.value;
         x += wristMotion * 0.35;
         z += wristMotion * (isLeft ? -0.1 : 0.1);
-        y += scratch * (isLeft ? -5.5 : 5.5);
-        x += scratch * scratchStroke * 0.3;
-      } else if (name.startsWith('metacarpal')) {
-        z *= 0.9 + scratch * 0.25;
-      } else if (name.startsWith('finger1-')) {
-        const thumbSegment = Number(name[8]);
-        x += scratchGrip * (thumbSegment === 1 ? 14 : 9);
-        z += scratchGrip * (isLeft ? 3 : -3);
       } else if (name.startsWith('finger') && !name.startsWith('finger1-')) {
         const fingerNumber = Number(name[6]);
         const segmentNumber = Number(name[8]);
@@ -761,16 +851,92 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
         ) * 0.5;
         x += fingerMotion * (1.4 + (fingerNumber - 2) * 0.6) * segmentInfluence;
         x += fingerMicro * segmentInfluence;
-        x += scratchGrip * ({ 1: 26, 2: 32, 3: 22 }[segmentNumber] ?? 22);
         x += (armGather - 0.5) * ({ 1: 3, 2: 2, 3: 1.2 }[segmentNumber] ?? 0);
         if (segmentNumber === 1) {
           z *= 0.62 + armGather * 0.56;
-          z *= 1 + scratch * 0.55;
         }
       }
 
       applyRel(scenes, restMap, name, THREE.MathUtils.degToRad(x), THREE.MathUtils.degToRad(y), THREE.MathUtils.degToRad(z));
     });
+
+    // Head look-at-cursor, with an idle "boredom" drift and a smooth
+    // return to the neutral rest orientation once the cursor has been
+    // still for a while - see HEAD_LOOK_MAX_YAW_DEGREES's own comment for
+    // the two earlier versions this replaced and why. Once fully idle
+    // (mouseIdleSeconds past MOUSE_LOOK_IDLE_SECONDS), the target just
+    // becomes (0, 0) and the existing spring eases toward it exactly like
+    // it eases toward any other target, so "return to neutral" falls out
+    // of the same spring for free instead of needing a separate state
+    // machine.
+    mouseIdleSeconds.current += delta;
+    const lookActive = mouseIdleSeconds.current < MOUSE_LOOK_IDLE_SECONDS;
+
+    // Boredom: dwell time accumulates only while the cursor stays within
+    // GAZE_DWELL_RESET_DISTANCE of the anchor - any real movement past
+    // that resets both the anchor and the clock, so boredom only ever
+    // builds up during a genuine "cursor parked in one place" stretch, not
+    // during continuous tracking.
+    const dx = mouseTarget.current.x - gazeAnchor.current.x;
+    const dy = mouseTarget.current.y - gazeAnchor.current.y;
+    if (!lookActive || Math.hypot(dx, dy) > GAZE_DWELL_RESET_DISTANCE) {
+      gazeAnchor.current = { x: mouseTarget.current.x, y: mouseTarget.current.y };
+      gazeDwellSeconds.current = 0;
+    } else {
+      gazeDwellSeconds.current += delta;
+    }
+    const boredomTarget = gazeDwellSeconds.current > GAZE_DWELL_TRIGGER_SECONDS ? 1 : 0;
+    gazeBoredom.current =
+      boredomTarget > gazeBoredom.current
+        ? Math.min(1, gazeBoredom.current + delta / GAZE_BOREDOM_RAMP_SECONDS)
+        : Math.max(0, gazeBoredom.current - delta * GAZE_BOREDOM_DECAY_PER_SECOND);
+    // A slow, small wander near center - two sine waves at different,
+    // non-integer-ratio frequencies so the path doesn't repeat on an
+    // obvious cycle, blended in as boredom rises so a held gaze relaxes
+    // into a gentle drift instead of holding a fixed off-center stare
+    // (the biggest tell that a cursor-follow gaze is mechanical, not the
+    // angle range or the spring speed).
+    const gazeT = clock.getElapsedTime();
+    const wanderX = Math.sin(gazeT * 0.5) * 0.35;
+    const wanderY = Math.sin(gazeT * 0.33 + 1.7) * 0.25;
+    const targetX = lookActive ? THREE.MathUtils.lerp(mouseTarget.current.x, wanderX, gazeBoredom.current) : 0;
+    const targetY = lookActive ? THREE.MathUtils.lerp(mouseTarget.current.y, wanderY, gazeBoredom.current) : 0;
+    springStep(lookSpring.current.x, targetX, delta, MOUSE_LOOK_SPRING_FREQUENCY, MOUSE_LOOK_SPRING_DAMPING);
+    springStep(lookSpring.current.y, targetY, delta, MOUSE_LOOK_SPRING_FREQUENCY, MOUSE_LOOK_SPRING_DAMPING);
+    // The avatar always stands facing world +Z (toward the default camera
+    // position) - unlike SeatedPose's NPCs, there's no per-seat facing
+    // direction to account for, so yaw is a fixed rotation about world Y
+    // and pitch about a fixed "right" axis instead of ones derived from a
+    // per-character forward vector. Pitch's max degrees differ by sign -
+    // see HEAD_LOOK_MAX_PITCH_UP_DEGREES's own comment.
+    const pitchMaxDegrees =
+      lookSpring.current.y.value >= 0 ? HEAD_LOOK_MAX_PITCH_UP_DEGREES : HEAD_LOOK_MAX_PITCH_DOWN_DEGREES;
+    const headWorldDelta = new THREE.Quaternion()
+      .setFromAxisAngle(AVATAR_UP, THREE.MathUtils.degToRad(lookSpring.current.x.value * HEAD_LOOK_MAX_YAW_DEGREES))
+      .multiply(
+        new THREE.Quaternion().setFromAxisAngle(
+          AVATAR_RIGHT,
+          THREE.MathUtils.degToRad(lookSpring.current.y.value * pitchMaxDegrees),
+        ),
+      );
+    applyRelWorld(scenes, restMap, 'head', headWorldDelta);
+
+    // Eyes layer their own, bigger rotation on top of the head's - see
+    // EYE_LOOK_MAX_YAW_DEGREES's own comment for why they're separate
+    // constants instead of reusing the head's. Same spring values (already
+    // eased/bounded -1..1), same axis convention, just different reach.
+    const eyePitchMaxDegrees =
+      lookSpring.current.y.value >= 0 ? EYE_LOOK_MAX_PITCH_UP_DEGREES : EYE_LOOK_MAX_PITCH_DOWN_DEGREES;
+    const eyeWorldDelta = new THREE.Quaternion()
+      .setFromAxisAngle(AVATAR_UP, THREE.MathUtils.degToRad(lookSpring.current.x.value * EYE_LOOK_MAX_YAW_DEGREES))
+      .multiply(
+        new THREE.Quaternion().setFromAxisAngle(
+          AVATAR_RIGHT,
+          THREE.MathUtils.degToRad(lookSpring.current.y.value * eyePitchMaxDegrees),
+        ),
+      );
+    applyRelWorld(scenes, restMap, 'eyeL', eyeWorldDelta);
+    applyRelWorld(scenes, restMap, 'eyeR', eyeWorldDelta);
 
     // Breathing - spine02 is the chest's skinning root in this rig. Only a
     // position bob, no rotational tilt: a tilt here (tried up to 6°) leaks

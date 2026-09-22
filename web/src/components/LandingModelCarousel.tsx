@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { assetUrl } from '../lib/assetUrl';
 
 // Five free, CC-licensed low-poly models standing in for the point after
 // "InnerSpace.ED": a plate of food, a salad, a scale, a dumbbell and a
@@ -14,11 +15,11 @@ import * as THREE from 'three';
 // standing it up (rollZ) keeps its bar aligned with the spin axis, so the
 // spin turns it like a rotisserie instead of tumbling its silhouette.
 const MODELS = [
-  { url: '/models/landing/dinner.glb', tilt: 0, rollZ: 0, size: 1, glow: false },
-  { url: '/models/landing/salad.glb', tilt: Math.PI / 3, rollZ: 0, size: 1, glow: false },
-  { url: '/models/landing/scale.glb', tilt: Math.PI / 3, rollZ: 0, size: 1, glow: false },
-  { url: '/models/landing/dumbbell.glb', tilt: 0, rollZ: Math.PI / 2, size: 1.3, glow: true },
-  { url: '/models/landing/kettlebell.glb', tilt: 0, rollZ: 0, size: 1, glow: true },
+  { url: assetUrl('/models/landing/dinner.glb'), tilt: 0, rollZ: 0, size: 1, glow: false },
+  { url: assetUrl('/models/landing/salad.glb'), tilt: Math.PI / 3, rollZ: 0, size: 1, glow: false },
+  { url: assetUrl('/models/landing/scale.glb'), tilt: Math.PI / 3, rollZ: 0, size: 1, glow: false },
+  { url: assetUrl('/models/landing/dumbbell.glb'), tilt: 0, rollZ: Math.PI / 2, size: 1.3, glow: true },
+  { url: assetUrl('/models/landing/kettlebell.glb'), tilt: 0, rollZ: 0, size: 1, glow: true },
 ];
 
 MODELS.forEach((m) => useGLTF.preload(m.url));

@@ -21,8 +21,30 @@ export interface Seat {
   yaw: number;
 }
 
+// One ordered dish the player could grab and drag around their own table -
+// see the onPointerDown handler's own comment for how "their own table" is
+// decided. `position` is that item's CURRENT world position (CafeScene.tsx
+// recomputes this list every render from its own foodPositions state, same
+// as CafeEnvironment.tsx does for the actual 3D props - the two stay in
+// sync because they read the same state, not because this component knows
+// anything about food).
+export interface DraggableFoodItem {
+  table: number;
+  itemId: string;
+  position: [number, number, number];
+}
+
 const EYE_HEIGHT = 1.6;
 const SEAT_EYE_HEIGHT = 1.15; // seated eye height - ~0.45m lower than standing
+// Camera pitch (radians, negative = looking down - see onPointerMove's own
+// sign convention) sitting down starts at, instead of dead level (0) -
+// reported directly: several psychologists didn't realize they needed to
+// drag downward to actually see the table/food after sitting, since
+// nothing about the view hinted the table was below eye line. Sitting
+// still resets pitch to exactly this value every time (not just on first
+// sit), and dragging afterward is completely free in either direction -
+// this only changes where the look starts, not what's reachable.
+const SEATED_INITIAL_PITCH = -0.38; // ~-22deg
 const SIT_RADIUS_METERS = 1.4; // how close a click needs the player to already be, to sit
 const SIT_EASE_RATE = 3.5; // camera position ease rate while sitting down/standing up
 const SIT_TRANSITION_HOLD_SECONDS = 0.5; // how long after standing up to keep using the slow ease
@@ -30,6 +52,12 @@ const CLICK_MAX_MOVE_PIXELS = 6; // pointerdown->up movement under this counts a
 const CLICK_MAX_DURATION_MS = 400;
 const MOVE_SPEED = 2.2; // meters/second
 const LOOK_SPEED = 0.0035; // radians per pixel of drag
+// How close (in screen pixels) a pointerdown needs to land to an ordered
+// item's own projected position to grab it instead of starting a
+// look-drag - generous enough to forgive not clicking the exact pixel of a
+// small prop, without being so wide that two adjacent dishes fight over
+// the same click.
+const FOOD_DRAG_PICK_PIXELS = 46;
 
 const KEY_TO_AXIS: Record<string, [number, number]> = {
   // [forward, strafe], forward is -Z (into the room)
@@ -70,6 +98,10 @@ export function PlayerControls({
   seats,
   onNearSeatChange,
   onSitChange,
+  draggableFoodItems,
+  tableCenters,
+  foodDragRadius = 0.4,
+  onFoodDrag,
 }: {
   start: [number, number];
   startYaw: number;
@@ -89,6 +121,25 @@ export function PlayerControls({
   // comment): which table the player is AT is derived from which seat
   // they're sitting in.
   onSitChange?: (index: number | null) => void;
+  // Drag-to-reposition ordered food, requested directly - all optional, so
+  // a room with no food (or a future room reusing this component) just
+  // doesn't get the feature. Only items belonging to the table the player
+  // is CURRENTLY SEATED at are ever pickable (see onPointerDown's own
+  // comment) - table index is `seat >> 1`, matching EMPTY_TABLE_SEATS'
+  // "two seats per table" layout CafeScene.tsx already uses for
+  // `seatedTable`.
+  draggableFoodItems?: DraggableFoodItem[];
+  tableCenters?: [number, number, number][];
+  // How far (meters) from its own tableCenter a dragged item can land -
+  // this component doesn't know the actual table's physical size, so the
+  // caller (CafeScene.tsx, from CafeEnvironment.tsx's own
+  // TABLE_DRAG_MAX_RADIUS) has to say.
+  foodDragRadius?: number;
+  // Fires continuously while dragging with the new position, as a LOCAL
+  // [x,z] offset from that table's own center (matching
+  // CafeEnvironment.tsx's `positions` prop on TableOrder) - already
+  // clamped to foodDragRadius so CafeScene.tsx can store it as-is.
+  onFoodDrag?: (table: number, itemId: string, localX: number, localZ: number) => void;
 }) {
   const { camera, gl } = useThree();
   const yaw = useRef(startYaw);
@@ -98,6 +149,19 @@ export function PlayerControls({
   const dragging = useRef(false);
   const seatedIndex = useRef<number | null>(null);
   const nearSeatIndex = useRef<number | null>(null);
+  const draggingFood = useRef<{ table: number; itemId: string } | null>(null);
+  const raycaster = useRef(new THREE.Raycaster());
+  // Latest-value refs for the food-drag props, same reason as
+  // onNearSeatChangeRef/onSitChangeRef just below: read from inside a DOM
+  // listener that isn't itself re-subscribed on every render.
+  const draggableFoodItemsRef = useRef(draggableFoodItems);
+  draggableFoodItemsRef.current = draggableFoodItems;
+  const tableCentersRef = useRef(tableCenters);
+  tableCentersRef.current = tableCenters;
+  const foodDragRadiusRef = useRef(foodDragRadius);
+  foodDragRadiusRef.current = foodDragRadius;
+  const onFoodDragRef = useRef(onFoodDrag);
+  onFoodDragRef.current = onFoodDrag;
   // Counts down after standing up so the camera still eases back up to
   // EYE_HEIGHT instead of snapping - see the useFrame block's own comment
   // on why sitting down and standing up need a slower ease than walking.
@@ -125,11 +189,53 @@ export function PlayerControls({
       pressed.current.delete(e.key.toLowerCase());
     };
     const onPointerDown = (e: PointerEvent) => {
+      // Try to grab a food item FIRST, before starting the usual
+      // drag-to-look gesture - only while actually seated (an item is
+      // only pickable from the table you're sitting at, never a passerby
+      // reaching across the room) and only for items belonging to THAT
+      // table (`seat >> 1`), never the other table's food even if it
+      // happens to project closer to the cursor from this camera angle.
+      // Picks whichever qualifying item's own screen-projected position is
+      // nearest the click, within FOOD_DRAG_PICK_PIXELS - not a true
+      // raycast against each dish's actual (very different, sometimes
+      // tiny) geometry, which would need every food prop to carry its own
+      // hit-testing setup for what's otherwise a small, low-stakes nudge
+      // interaction.
+      const items = draggableFoodItemsRef.current;
+      if (seatedIndex.current !== null && items && items.length > 0) {
+        const table = seatedIndex.current >> 1;
+        const rect = el.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        let nearestItem: DraggableFoodItem | null = null;
+        let nearestDist = FOOD_DRAG_PICK_PIXELS;
+        for (const item of items) {
+          if (item.table !== table) continue;
+          const projected = new THREE.Vector3(...item.position).project(camera);
+          const sx = (projected.x * 0.5 + 0.5) * rect.width;
+          const sy = (-projected.y * 0.5 + 0.5) * rect.height;
+          const d = Math.hypot(sx - px, sy - py);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearestItem = item;
+          }
+        }
+        if (nearestItem) {
+          draggingFood.current = { table: nearestItem.table, itemId: nearestItem.itemId };
+          el.setPointerCapture(e.pointerId);
+          return;
+        }
+      }
       dragging.current = true;
       el.setPointerCapture(e.pointerId);
       clickStart.current = { x: e.clientX, y: e.clientY, t: performance.now() };
     };
     const onPointerUp = (e: PointerEvent) => {
+      if (draggingFood.current) {
+        draggingFood.current = null;
+        el.releasePointerCapture(e.pointerId);
+        return;
+      }
       dragging.current = false;
       el.releasePointerCapture(e.pointerId);
       const start = clickStart.current;
@@ -160,7 +266,7 @@ export function PlayerControls({
       if (nearest >= 0) {
         seatedIndex.current = nearest;
         yaw.current = seats[nearest].yaw;
-        pitch.current = 0;
+        pitch.current = SEATED_INITIAL_PITCH;
         // No longer "near" a seat once actually sitting in it - the hint
         // is for "you could sit here", not relevant once you have.
         if (nearSeatIndex.current !== null) {
@@ -171,6 +277,36 @@ export function PlayerControls({
       }
     };
     const onPointerMove = (e: PointerEvent) => {
+      if (draggingFood.current) {
+        const { table, itemId } = draggingFood.current;
+        const center = tableCentersRef.current?.[table];
+        if (!center) return;
+        const rect = el.getBoundingClientRect();
+        const ndc = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        raycaster.current.setFromCamera(ndc, camera);
+        // The table's own horizontal plane, at its real height - dragging
+        // moves the dish ACROSS the table, not toward/away from the
+        // camera, so intersecting this plane (rather than e.g. a fixed
+        // distance along the ray) is what makes the dish track directly
+        // under the cursor the way dragging something on a real table
+        // would.
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -center[1]);
+        const hit = new THREE.Vector3();
+        if (!raycaster.current.ray.intersectPlane(plane, hit)) return;
+        let localX = hit.x - center[0];
+        let localZ = hit.z - center[2];
+        const radius = foodDragRadiusRef.current ?? 0.4;
+        const len = Math.hypot(localX, localZ);
+        if (len > radius) {
+          localX = (localX / len) * radius;
+          localZ = (localZ / len) * radius;
+        }
+        onFoodDragRef.current?.(table, itemId, localX, localZ);
+        return;
+      }
       if (!dragging.current) return;
       yaw.current -= e.movementX * LOOK_SPEED;
       pitch.current = THREE.MathUtils.clamp(pitch.current - e.movementY * LOOK_SPEED, -1.1, 1.1);

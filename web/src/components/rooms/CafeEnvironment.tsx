@@ -1,7 +1,9 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import { cloneGltfScene } from '../../avatar/cloneGltf';
+import { assetUrl } from '../../lib/assetUrl';
 
 /**
  * A small neighbourhood cafe interior - built from plain primitives, same
@@ -11,9 +13,22 @@ import { cloneGltfScene } from '../../avatar/cloneGltf';
  */
 export function CafeEnvironment({
   tableOrders,
+  foodPositions,
+  dragHintItem,
   onDoorClick,
 }: {
   tableOrders?: MenuFoodId[][];
+  // Per-table map of custom (dragged) local [x,z] offsets from that
+  // table's own center, keyed by item id - see PlayerControls.tsx's own
+  // foodDrag* props for how these get set. An item with no entry here
+  // falls back to TableOrder's fixed default slot, same as before this
+  // existed.
+  foodPositions?: Partial<Record<MenuFoodId, [number, number]>>[];
+  // The one item (if any) that should show the "you can drag this" pulse
+  // ring - see CafeScene.tsx's own comment on why it's only ever the
+  // first slot-ordered item on the table the player is currently sitting
+  // at, and only until they've actually dragged something once.
+  dragHintItem?: { table: number; itemId: MenuFoodId } | null;
   // Requested directly, alongside the specialist's exposure guide (see
   // CafeScene.tsx's own comment): if the guide's before/after anxiety
   // ratings are both filled in, leaving via the door should show a quick
@@ -75,7 +90,12 @@ export function CafeEnvironment({
       <Table position={[0, 0, -1]} />
       <Chair position={[0, 0, -0.38]} rotationY={Math.PI} />
       <Chair position={[0, 0, -1.62]} rotationY={0} />
-      <TableOrder items={tableOrders?.[0] ?? []} tableCenter={[0, 0.74, -1]} />
+      <TableOrder
+        items={tableOrders?.[0] ?? []}
+        tableCenter={TABLE_CENTERS[0]}
+        positions={foodPositions?.[0]}
+        hintItemId={dragHintItem?.table === 0 ? dragHintItem.itemId : null}
+      />
       {/* Moved several times, requested directly, chasing a few different
           screenshots-with-arrows: a "ring" spot between table2/table4
           (too central), a back-right pocket, right against the door, just
@@ -86,7 +106,12 @@ export function CafeEnvironment({
       <Table position={[1.6, 0, 0.9]} />
       <Chair position={[1.6, 0, 1.52]} rotationY={Math.PI} />
       <Chair position={[1.6, 0, 0.28]} rotationY={0} />
-      <TableOrder items={tableOrders?.[1] ?? []} tableCenter={[1.6, 0.74, 0.9]} />
+      <TableOrder
+        items={tableOrders?.[1] ?? []}
+        tableCenter={TABLE_CENTERS[1]}
+        positions={foodPositions?.[1]}
+        hintItemId={dragHintItem?.table === 1 ? dragHintItem.itemId : null}
+      />
 
       <Table position={[1.6, 0, -3.4]} />
       <Chair position={[1.6, 0, -2.78]} rotationY={Math.PI} />
@@ -271,7 +296,7 @@ export function CafeEnvironment({
 // plate it replaces (chopsticks resting across the rim extend it well past
 // the bowl itself) - scaled down to sit in the same footprint a FoodPlate
 // used to.
-const RAMEN_URL = '/models/props/food/ramen.glb';
+const RAMEN_URL = assetUrl('/models/props/food/ramen.glb');
 
 function RamenBowl({ position, scale = 0.36 }: { position: [number, number, number]; scale?: number }) {
   const { scene } = useGLTF(RAMEN_URL);
@@ -293,10 +318,10 @@ useGLTF.preload(RAMEN_URL);
 // (they were close enough in the source scene to land in the same
 // proximity cluster) - left as one combined piece rather than split back
 // apart, since it still reads fine as a single fuller dish.
-const SEAFOOD_CRAB_URL = '/models/props/food/seafood_crab.glb';
-const SEAFOOD_FISH_URL = '/models/props/food/seafood_fish.glb';
-const SEAFOOD_SCALLOPS_URL = '/models/props/food/seafood_scallops.glb';
-const SEAFOOD_SHRIMP_URL = '/models/props/food/seafood_shrimp.glb';
+const SEAFOOD_CRAB_URL = assetUrl('/models/props/food/seafood_crab.glb');
+const SEAFOOD_FISH_URL = assetUrl('/models/props/food/seafood_fish.glb');
+const SEAFOOD_SCALLOPS_URL = assetUrl('/models/props/food/seafood_scallops.glb');
+const SEAFOOD_SHRIMP_URL = assetUrl('/models/props/food/seafood_shrimp.glb');
 [SEAFOOD_CRAB_URL, SEAFOOD_FISH_URL, SEAFOOD_SCALLOPS_URL, SEAFOOD_SHRIMP_URL].forEach((url) =>
   useGLTF.preload(url),
 );
@@ -322,7 +347,7 @@ function SeafoodDish({ url, position }: { url: string; position: [number, number
 // generic "table2 plate" for both. Native bbox is ~2x1.3x0.9 in the
 // model's own oversized units - scaled down to a real roast-chicken-on-a-
 // platter length (~0.35m).
-const CHICKEN_URL = '/models/props/food/chicken.glb';
+const CHICKEN_URL = assetUrl('/models/props/food/chicken.glb');
 const CHICKEN_SCALE = 0.18;
 
 function RoastChicken({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
@@ -339,7 +364,7 @@ useGLTF.preload(CHICKEN_URL);
 // not a slice. "pizza_scan" in its own filename - a photogrammetry scan,
 // which is why its native scale is so far off real-world size (~12 units
 // across) compared to every hand-modeled asset here.
-const PIZZA_URL = '/models/props/food/pizza.glb';
+const PIZZA_URL = assetUrl('/models/props/food/pizza.glb');
 const PIZZA_SCALE = 0.023;
 
 function Pizza({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
@@ -357,7 +382,7 @@ useGLTF.preload(PIZZA_URL);
 // rather than replace it. Raw position is far from the origin (same "the
 // artist's own scene origin, not the asset" pattern Ramen's own file had)
 // - recentred in the pipeline, not here.
-const SUSHI_URL = '/models/props/food/sushi.glb';
+const SUSHI_URL = assetUrl('/models/props/food/sushi.glb');
 const SUSHI_SCALE = 0.17;
 
 function Sushi({
@@ -391,9 +416,9 @@ useGLTF.preload(SUSHI_URL);
 // a ~15cm saucer) and needed decimating hard in the pipeline (1.7M
 // vertices down to a tenth) before it was light enough to place three of
 // around this room.
-const CAKE_URL = '/models/props/food/cake.glb';
+const CAKE_URL = assetUrl('/models/props/food/cake.glb');
 const CAKE_SCALE = 0.85;
-const PINK_COFFEE_URL = '/models/props/food/pink_coffee.glb';
+const PINK_COFFEE_URL = assetUrl('/models/props/food/pink_coffee.glb');
 const PINK_COFFEE_SCALE = 0.14;
 [CAKE_URL, PINK_COFFEE_URL].forEach((url) => useGLTF.preload(url));
 
@@ -427,7 +452,7 @@ function PinkCoffee({ position }: { position: [number, number, number] }) {
 // (one menu item, one table slot), so left un-joined like every other
 // single-use prop here - joining only pays for itself when something's
 // instantiated many times over, not once.
-const BUN_URL = '/models/props/food/bun.glb';
+const BUN_URL = assetUrl('/models/props/food/bun.glb');
 const BUN_SCALE = 0.43;
 useGLTF.preload(BUN_URL);
 
@@ -469,6 +494,24 @@ export const MENU_FOOD_ITEMS = [
 ] as const;
 export type MenuFoodId = (typeof MENU_FOOD_ITEMS)[number]['id'];
 
+// The two orderable tables' own centers - pulled out to a shared constant
+// (previously inlined at each <TableOrder tableCenter> call below) so
+// PlayerControls.tsx's food-drag handling (CafeScene.tsx passes this
+// straight through) and this file's own default-slot math can't drift
+// apart the way two separately-typed [0,0.74,-1] literals eventually
+// would. Table index here matches `seatedSeat >> 1` in CafeScene.tsx
+// (EMPTY_TABLE_SEATS is two seats per table, in the same order).
+export const TABLE_CENTERS: [number, number, number][] = [
+  [0, 0.74, -1],
+  [1.6, 0.74, 0.9],
+];
+// How far from tableCenter a dragged item is allowed to land - a bit
+// inside Table's own 0.42 default radius (see the Table() component
+// further down) so a dish never overhangs the physical edge, matching
+// "не за пределы своего стола" (not off the edge of your own table)
+// directly.
+export const TABLE_DRAG_MAX_RADIUS = 0.37;
+
 function OrderedFoodItem({ itemId, position }: { itemId: MenuFoodId; position: [number, number, number] }) {
   switch (itemId) {
     case 'cake':
@@ -493,29 +536,88 @@ function OrderedFoodItem({ itemId, position }: { itemId: MenuFoodId; position: [
 }
 
 // One of the two empty tables' full order - every item in MENU_FOOD_ITEMS
-// gets its OWN fixed slot around the table (evenly spaced at 0.3m radius,
-// one per 360/8 = 45deg), rather than items packing in wherever the next
-// open spot is as they're picked - so a table with cake and ramen looks
-// the same regardless of which one was ordered first, and un-ordering one
-// item doesn't shuffle the others. `items` are only ever a subset of
-// MENU_FOOD_ITEMS' ids (CafeScene.tsx's own per-table state); anything not
-// present just renders nothing at its slot.
+// gets its OWN fixed default slot around the table (evenly spaced at 0.3m
+// radius, one per 360/8 = 45deg), rather than items packing in wherever
+// the next open spot is as they're picked - so a table with cake and ramen
+// looks the same regardless of which one was ordered first, and
+// un-ordering one item doesn't shuffle the others. `items` are only ever a
+// subset of MENU_FOOD_ITEMS' ids (CafeScene.tsx's own per-table state);
+// anything not present just renders nothing at its slot.
+//
+// That default slot is only the STARTING position now, not a fixed one -
+// requested directly: once a dish has loaded in, the player can drag it
+// around their own table (closer, further, wherever), which is what
+// `positions` (a per-item custom [x,z] local offset, also owned by
+// CafeScene.tsx - see PlayerControls.tsx's foodDrag* props) overrides when
+// present.
 const TABLE_ORDER_SLOT_RADIUS = 0.3;
 
-function TableOrder({ items, tableCenter }: { items: MenuFoodId[]; tableCenter: [number, number, number] }) {
+export function getDefaultFoodSlotPosition(
+  itemId: MenuFoodId,
+  tableCenter: [number, number, number],
+): [number, number, number] {
+  const i = MENU_FOOD_ITEMS.findIndex((item) => item.id === itemId);
+  const angle = (i / MENU_FOOD_ITEMS.length) * Math.PI * 2;
+  return [
+    tableCenter[0] + Math.cos(angle) * TABLE_ORDER_SLOT_RADIUS,
+    tableCenter[1],
+    tableCenter[2] + Math.sin(angle) * TABLE_ORDER_SLOT_RADIUS,
+  ];
+}
+
+function TableOrder({
+  items,
+  tableCenter,
+  positions,
+  hintItemId,
+}: {
+  items: MenuFoodId[];
+  tableCenter: [number, number, number];
+  positions?: Partial<Record<MenuFoodId, [number, number]>>;
+  hintItemId?: MenuFoodId | null;
+}) {
   return (
     <>
-      {MENU_FOOD_ITEMS.map((item, i) => {
+      {MENU_FOOD_ITEMS.map((item) => {
         if (!items.includes(item.id)) return null;
-        const angle = (i / MENU_FOOD_ITEMS.length) * Math.PI * 2;
-        const position: [number, number, number] = [
-          tableCenter[0] + Math.cos(angle) * TABLE_ORDER_SLOT_RADIUS,
-          tableCenter[1],
-          tableCenter[2] + Math.sin(angle) * TABLE_ORDER_SLOT_RADIUS,
-        ];
-        return <OrderedFoodItem key={item.id} itemId={item.id} position={position} />;
+        const custom = positions?.[item.id];
+        const position: [number, number, number] = custom
+          ? [tableCenter[0] + custom[0], tableCenter[1], tableCenter[2] + custom[1]]
+          : getDefaultFoodSlotPosition(item.id, tableCenter);
+        return (
+          <group key={item.id}>
+            <OrderedFoodItem itemId={item.id} position={position} />
+            {hintItemId === item.id && <FoodDragHint position={position} />}
+          </group>
+        );
       })}
     </>
+  );
+}
+
+// A soft pulsing ring on the tablecloth under the first-ordered item,
+// requested directly ("на первом предмете... подсвечивался... что-то что
+// давало бы понять, что так можно делать") - the drag-to-reposition
+// feature has no other visual affordance (an ordered dish looks like any
+// other static prop otherwise), so this is the one hint that it's
+// interactive. CafeScene.tsx decides WHICH item gets it (only the current
+// table's first slot-ordered item, and only until the player has actually
+// dragged something once - see its own dragHintItem/hasDraggedFood
+// comments) - this just draws the ring wherever it's told to.
+function FoodDragHint({ position }: { position: [number, number, number] }) {
+  const ref = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  useFrame(({ clock }) => {
+    const pulse = 0.5 + Math.sin(clock.getElapsedTime() * 2.4) * 0.5;
+    if (materialRef.current) materialRef.current.opacity = 0.16 + pulse * 0.22;
+    const s = 1 + pulse * 0.15;
+    ref.current?.scale.set(s, s, s);
+  });
+  return (
+    <mesh ref={ref} position={[position[0], position[1] + 0.002, position[2]]} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[0.1, 0.13, 32]} />
+      <meshBasicMaterial ref={materialRef} color="#8b6cff" transparent opacity={0.3} depthWrite={false} />
+    </mesh>
   );
 }
 
@@ -561,7 +663,7 @@ function Fork({ position, rotationY = 0 }: { position: [number, number, number];
 // the sit-down table menu (see TableOrder/MENU_FOOD_ITEMS further down)
 // gave players real dishes to look at up close instead of a static list of
 // drinks with nothing behind them.
-const VITRINE_URL = '/models/props/food/vitrine.glb';
+const VITRINE_URL = assetUrl('/models/props/food/vitrine.glb');
 // Native scale: ~0.593 wide (front-to-back) x ~1.767 long x ~1.034 tall,
 // pivoted at the base (see pipeline note below). The model's glass front
 // faces its own local +X - rotationY=-90deg turns that to face world +Z,
@@ -621,14 +723,14 @@ useGLTF.preload(VITRINE_URL);
 // needing their own separate rotation math the way BreadPack (a sibling
 // of VitrineCase, not a child) needed its own -90deg turn.
 const FOOD_TRAY_URLS = [
-  '/models/props/food/food_tray_1.glb',
-  '/models/props/food/food_tray_2.glb',
-  '/models/props/food/food_tray_3.glb',
-  '/models/props/food/food_tray_4.glb',
-  '/models/props/food/food_tray_5.glb',
-  '/models/props/food/food_tray_6.glb',
-  '/models/props/food/food_tray_7.glb',
-  '/models/props/food/food_tray_8.glb',
+  assetUrl('/models/props/food/food_tray_1.glb'),
+  assetUrl('/models/props/food/food_tray_2.glb'),
+  assetUrl('/models/props/food/food_tray_3.glb'),
+  assetUrl('/models/props/food/food_tray_4.glb'),
+  assetUrl('/models/props/food/food_tray_5.glb'),
+  assetUrl('/models/props/food/food_tray_6.glb'),
+  assetUrl('/models/props/food/food_tray_7.glb'),
+  assetUrl('/models/props/food/food_tray_8.glb'),
 ];
 FOOD_TRAY_URLS.forEach((url) => useGLTF.preload(url));
 // Raw download is ~6.8 x 10.5 (depth x length) in the pack's own oversized
@@ -684,7 +786,7 @@ function ShelfTrays({ y, urls }: { y: number; urls: [string, string] }) {
 // instances instead, one per VitrineCase, each scaled to that single
 // case's own ~1.77m length (with a little margin) so the pastries cover
 // both display tops edge to edge instead of just the middle.
-const BREAD_PACK_URL = '/models/props/food/bread_pack.glb';
+const BREAD_PACK_URL = assetUrl('/models/props/food/bread_pack.glb');
 const BREAD_PACK_SCALE = 0.74;
 
 function BreadPack({ position }: { position: [number, number, number] }) {

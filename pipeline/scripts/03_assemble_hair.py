@@ -232,7 +232,7 @@ def main():
     print("Basemesh for fitting:", basemesh.name)
 
     hair_obj = fit_hair(HumanService, basemesh)
-    lift_off_scalp(hair_obj, distance=0.016, max_forward=0.0035)
+    lift_off_scalp(hair_obj, distance=0.03, max_forward=0.0035)
     weld_back_seam(hair_obj)
     add_seam_clearance(hair_obj)
     z_min, z_max = z_bounds(hair_obj)

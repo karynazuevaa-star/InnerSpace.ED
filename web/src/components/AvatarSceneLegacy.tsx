@@ -14,6 +14,7 @@ import { SceneErrorBoundary } from './SceneErrorBoundary';
 import { SceneErrorScreen } from './SceneErrorScreen';
 import { GazeHeatmap } from '../gaze/GazeHeatmap';
 import { useLanguage } from '../i18n/LanguageContext';
+import { assetUrl } from '../lib/assetUrl';
 import type { BodyMorphState } from '../avatar/bodyMorphs';
 
 /**
@@ -72,9 +73,9 @@ export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
               <BodyLegacy morphs={config.morphs} />
               <OutfitPiece url={config.topUrl} morphs={config.morphs} />
               <OutfitPiece url={config.bottomUrl} morphs={config.morphs} />
-              <HeadAttachmentLegacy url="/models-legacy/eyes.glb" />
-              <HeadAttachmentLegacy url="/models-legacy/eyebrows.glb" transparent />
-              <HeadAttachmentLegacy url="/models-legacy/eyelashes.glb" transparent />
+              <HeadAttachmentLegacy url={assetUrl('/models-legacy/eyes.glb')} />
+              <HeadAttachmentLegacy url={assetUrl('/models-legacy/eyebrows.glb')} transparent />
+              <HeadAttachmentLegacy url={assetUrl('/models-legacy/eyelashes.glb')} transparent />
               {config.hairStyle && <Hair style={config.hairStyle} color={config.hairColor} />}
             </Suspense>
           </SceneErrorBoundary>

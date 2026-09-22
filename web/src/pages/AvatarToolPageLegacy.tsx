@@ -4,6 +4,7 @@ import { BodySliders } from '../components/BodySliders';
 import { HairPicker } from '../components/HairPicker';
 import { GazeTracker } from '../gaze/GazeTracker';
 import { DEFAULT_BODY_MORPHS, type BodyMorphState } from '../avatar/bodyMorphs';
+import { assetUrl } from '../lib/assetUrl';
 import type { HairStyle } from '../components/Hair';
 
 /**
@@ -16,7 +17,7 @@ import type { HairStyle } from '../components/Hair';
  * picker still works here so both pages can be compared at the same pose.
  */
 function outfitUrl(part: string): string {
-  return `/models/outfits/${part}.glb?v=7`;
+  return assetUrl(`/models/outfits/${part}.glb?v=7`);
 }
 
 const TOP = 'croptop';

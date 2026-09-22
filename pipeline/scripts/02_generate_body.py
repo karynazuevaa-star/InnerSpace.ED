@@ -1,7 +1,31 @@
 """
 Blender headless script: build a base body (young adult, female, caucasian)
 via MPFB2, expose a curated set of MakeHuman body-shape targets as LIVE
-glTF morph targets (weight=0 shape keys, not baked), and export body.glb.
+glTF morph targets (weight=0 shape keys, not baked), fit the eyes/eyebrows/
+eyelashes onto the SAME armature with real interpolated bone weights (the
+same recipe 09_bake_npc_presets.py's fit_rigid_bodypart uses for NPCs), and
+export all of it together as one body.glb.
+
+This replaces the previous split (body.glb from this script, eyes.glb from
+04_assemble_eyes.py, eyebrows.glb/eyelashes.glb from
+05_assemble_brows_lashes.py, each a standalone rigid mesh reparented onto
+the head bone at runtime in the browser). That runtime reparenting is
+exactly what NPCs deliberately avoid (see 09_bake_npc_presets.py's own
+module docstring: "sidesteps the runtime reparent... step entirely, which
+is where the multi-instance hair bug in NpcAvatar.tsx traced back to") -
+and on the dressing-room avatar it read as the eyes not sitting flush in
+the socket, an uncanny "tracking" look, worse than any NPC ever showed.
+Binding the eyes to the head bone via real vertex weights INSIDE this file
+means the browser never repositions them at all; Three.js's glTF skinning
+just carries them along with the skeleton like every other body part.
+
+Hair stays a separate, standalone file (03_assemble_hair.py) and reparented
+onto the head bone at runtime, same as before - unlike eyes/eyebrows/
+eyelashes, hair genuinely needs to be swappable per session (long/medium/
+short, any tint color), which a mesh baked into this file can't be. That
+runtime path already uses the correct attachToHead()/attach() helper (see
+web/src/avatar/AvatarContext.tsx), not the buggy add()-based one eyes used
+to go through, so it doesn't have the tracking problem this rewrite fixes.
 
 The frontend combines several raw targets per UI slider (e.g. "weight"
 drives waist/hips/torso girth targets together) - see pipeline/README.md.
@@ -29,11 +53,14 @@ SKIN_MHMAT = os.path.join(
     ROOT, "assets_src", "skin", "darthfurby_caucasian_female",
     # "_noeyes" variant: the stock texture paints eyeliner/lash makeup and
     # eyebrows directly onto the face - redundant and visibly doubled once
-    # separate eyes.glb/eyebrows.glb meshes render on top of it (see
-    # 04_assemble_eyes.py / 05_assemble_brows_lashes.py). This variant has
-    # those regions painted back to plain skin so only the real meshes show.
+    # the real eyes/eyebrows/eyelashes meshes fitted below render on top of
+    # it. This variant has those regions painted back to plain skin so only
+    # the real meshes show.
     "darthfurby_caucasian_female_noeyes.mhmat",
 )
+EYES_MHCLO = os.path.join(ROOT, "assets_src", "eyes", "high-poly", "high-poly.mhclo")
+EYEBROWS_MHCLO = os.path.join(ROOT, "assets_src", "eyebrows", "eyebrow002", "eyebrow002.mhclo")
+EYELASHES_MHCLO = os.path.join(ROOT, "assets_src", "eyelashes", "eyelashes01", "eyelashes01.mhclo")
 
 # (relative path under MPFB_TARGETS_DIR, shape-key name we expose to the web)
 # Each pair is a decr/incr (or min/max) pair around the neutral average body,
@@ -57,6 +84,15 @@ CURATED_TARGETS = [
     ("stomach/stomach-pregnant-incr.target.gz", "belly_incr"),
     ("stomach/stomach-tone-decr.target.gz", "belly_soft_decr"),
     ("stomach/stomach-tone-incr.target.gz", "belly_soft_incr"),
+    # MakeHuman's target library has no "fat stomach" shape separate from
+    # "pregnant" - stomach-pregnant is the only target that projects the
+    # belly forward at all. Pulling the navel back IN as the belly grows
+    # (a pregnant belly does the opposite - taut skin pushes the navel OUT)
+    # is one of the few available counter-cues that reads as fat rather
+    # than pregnant; see bodyMorphs.ts's applyBodyMorphs for how this is
+    # blended with a de-emphasized pregnant target and more of the general
+    # torso/waist girth targets instead.
+    ("stomach/stomach-navel-in.target.gz", "belly_navel_in"),
     # --- "breast size" slider ---
     (
         "breast/female-young-averagemuscle-averageweight-mincup-averagefirmness.target.gz",
@@ -239,9 +275,76 @@ def add_rig(HumanService, basemesh):
     return armature_obj
 
 
-def export_glb(basemesh, armature_obj):
+def set_alpha_mask(obj, threshold):
+    """
+    For alpha-CUTOUT strand-card assets (eyebrows/eyelashes) - see
+    09_bake_npc_presets.py's own set_alpha_mask, same fix, same reasoning:
+    MAKESKIN's material ships as alpha BLEND, which real-blends the whole
+    quad (a washed-out card with sort-order artifacts) instead of
+    discarding the transparent parts. Forcing OPAQUE instead fills the
+    "transparent" region with the texture's baked-black padding - solid
+    black blocks over the eyes, not just thicker brows. MASK (Blender's
+    CLIP) with a real threshold discards anything below it outright.
+    """
+    for mat in obj.data.materials:
+        if not mat or not mat.use_nodes:
+            continue
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+        tex_node = nodes.get("diffuseTexture")
+        bsdf = next((n for n in nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if not tex_node or not bsdf:
+            continue
+        links.new(tex_node.outputs["Alpha"], bsdf.inputs["Alpha"])
+        mat.blend_method = "CLIP"
+        mat.alpha_threshold = threshold
+
+
+def fit_rigid_bodypart(HumanService, basemesh, mhclo_path, asset_type, alpha_mask=None):
+    """
+    Fit a rigid (non-cloth) MHCLO asset - eyes/eyebrows/eyelashes - to
+    `basemesh` and bind it to the SAME armature already on `basemesh` via
+    interpolated bone weights, instead of exporting it standalone and
+    reparenting it onto the head bone at runtime in the browser (the old
+    04_assemble_eyes.py / 05_assemble_brows_lashes.py approach). Weights
+    interpolated from the basemesh's own scalp/face vertices land almost
+    entirely on the "head" bone already (that's what those vertices are
+    weighted to), so this reads as a rigid head-follow with no extra bone-
+    group bookkeeping needed - and, critically, no runtime reposition step
+    that can ever disagree with where the socket actually is. Same recipe
+    09_bake_npc_presets.py uses for NPCs, which never showed the "eyes not
+    sitting flush in the socket" tracking look the browser-side reparented
+    version did here.
+
+    Leave `alpha_mask` at its default (None) for eyes - the asset has no
+    real transparent region to mask, and touching its alpha wiring at all
+    (even just to force it opaque) turns the iris solid black; see
+    09_bake_npc_presets.py's fit_rigid_bodypart docstring for how that was
+    isolated. Eyebrows/eyelashes need a real cutout (alpha_mask=0.3, same
+    value the NPC bake uses) since they're strand-card textures with a
+    genuinely transparent background.
+    """
+    obj = HumanService.add_mhclo_asset(
+        mhclo_path, basemesh,
+        asset_type=asset_type,
+        material_type="MAKESKIN",
+        set_up_rigging=True,
+        interpolate_weights=True,
+        import_subrig=False,
+        import_weights=False,
+    )
+    print(f"Fitted {asset_type}:", obj.name, "verts:", len(obj.data.vertices))
+    simplify_materials_for_export(obj)
+    if alpha_mask is not None:
+        set_alpha_mask(obj, alpha_mask)
+    return obj
+
+
+def export_glb(basemesh, armature_obj, extra_objects=()):
     bpy.ops.object.select_all(action="DESELECT")
     basemesh.select_set(True)
+    for obj in extra_objects:
+        obj.select_set(True)
     if armature_obj:
         armature_obj.select_set(True)
         bpy.context.view_layer.objects.active = armature_obj
@@ -284,9 +387,20 @@ def main():
     shape_names = add_live_targets(TargetService, basemesh)
     print("Final shape keys:", [k.name for k in basemesh.data.shape_keys.key_blocks])
 
+    # Fitting must happen before helper-geometry removal below: MHCLO
+    # fitting/weight-interpolation matches vertices by INDEX against the
+    # basemesh's ORIGINAL (full) topology, same reason live targets load
+    # before that cleanup too. Each fitted object's own weights are baked
+    # into vertex groups keyed by bone name, not by basemesh vertex index,
+    # so nothing downstream cares that basemesh itself later loses
+    # vertices.
+    eyes_obj = fit_rigid_bodypart(HumanService, basemesh, EYES_MHCLO, "Eyes")
+    eyebrows_obj = fit_rigid_bodypart(HumanService, basemesh, EYEBROWS_MHCLO, "Eyebrows", alpha_mask=0.3)
+    eyelashes_obj = fit_rigid_bodypart(HumanService, basemesh, EYELASHES_MHCLO, "Eyelashes", alpha_mask=0.3)
+
     remove_helper_geometry(basemesh)
 
-    export_glb(basemesh, armature_obj)
+    export_glb(basemesh, armature_obj, extra_objects=[eyes_obj, eyebrows_obj, eyelashes_obj])
     print("DONE")
 
 

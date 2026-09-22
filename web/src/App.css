@@ -116,6 +116,17 @@
 .scene-loader {
   position: absolute;
   inset: 0;
+  /* Without this, the loader never actually painted over the canvas: R3F's
+     own canvas wrapper div is position:relative (its own inline style),
+     and two positioned siblings with z-index:auto stack in DOM order, with
+     the LATER one on top - the canvas wrapper comes after .scene-loader in
+     the JSX, so it always painted over the loader regardless of z-index
+     being "auto" on both. Found this by force-displaying the loader for a
+     screenshot and discovering it was invisible despite existing in the
+     DOM with a correct size - the "as long as show/hide logic works, it
+     must be fine" reasoning an earlier pass here relied on (loading was
+     always too fast in dev to actually SEE it) missed this. */
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -124,25 +135,148 @@
   background: var(--bg);
 }
 
-.scene-loader__spinner {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent-a);
-  animation: scene-loader-spin 0.8s linear infinite;
+.scene-loader__sprite {
+  /* Crisp block edges at any scale - this is drawn as SVG rects, not a
+     bitmap, but the browser's own edge antialiasing on scaled vectors can
+     still soften a deliberately blocky shape; shape-rendering: crispEdges
+     keeps every pixel a hard square like the loading animation this was
+     asked to look like ("как в симс или пиксельную типо загрузку"). */
+  shape-rendering: crispEdges;
+  animation: scene-loader-bob 1.6s ease-in-out infinite;
+}
+
+.scene-loader__sprite-outline rect {
+  fill: var(--border);
+}
+
+.scene-loader__sprite-fill rect {
+  fill: var(--accent-a);
+}
+
+.scene-loader__bar {
+  width: 120px;
+  height: 8px;
+  /* A handful of hard-edged blocks instead of one smooth gradient bar -
+     same "pixel" idea as the sprite above, rather than a generic loading
+     bar that would clash with it. */
+  background: repeating-linear-gradient(
+    to right,
+    var(--border) 0,
+    var(--border) 10px,
+    transparent 10px,
+    transparent 12px
+  );
+  overflow: hidden;
+}
+
+.scene-loader__bar-fill {
+  height: 100%;
+  background: repeating-linear-gradient(
+    to right,
+    var(--accent-a) 0,
+    var(--accent-a) 10px,
+    transparent 10px,
+    transparent 12px
+  );
+  transition: width 0.25s ease-out;
 }
 
 .scene-loader__label {
   margin: 0;
   font-size: 14px;
   color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
-@keyframes scene-loader-spin {
+@keyframes scene-loader-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* RoomLoader.tsx - a spinning ring + cycling caption instead of
+   SceneLoader's pixel-sprite fill, reusing .scene-loader's own overlay
+   positioning and .scene-loader__bar for the percentage readout below it. */
+.room-loader__spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 4px solid var(--border);
+  border-top-color: var(--accent-a);
+  animation: room-loader-spin 0.9s linear infinite;
+}
+
+@keyframes room-loader-spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+.room-loader__caption {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  animation: room-loader-caption-in 0.35s ease;
+}
+
+@keyframes room-loader-caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Arrow-key/click-and-hold alternative to trackpad drag-orbit and
+   pinch-zoom - requested directly after several psychologists using this
+   tool struggled with the trackpad gestures. Bottom-left so it stays clear
+   of the sidebar (right) and the "eye tracking" panel's own button. */
+.scene-orbit-pad {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(10, 10, 16, 0.55);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+}
+
+.scene-orbit-pad__btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.scene-orbit-pad__btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.scene-orbit-pad__btn:active {
+  background: var(--accent-a);
+  transform: scale(0.94);
 }
 
 .scene-error {
@@ -210,23 +344,30 @@
   border-radius: 8px;
 }
 
+/* Reported directly: several people didn't notice this existed, or
+   weren't sure what it did - the inactive label was var(--text-faint)
+   (barely readable against the dark nav bar) at 11px, easy to miss next
+   to the nav links either side of it. Brighter inactive text, a touch
+   more size/padding, and a visible border on the container itself (not
+   just a same-tone-as-the-bar fill) so it reads as its own control at a
+   glance instead of blending into the nav background. */
 .lang-switch {
   display: flex;
   flex-shrink: 0;
   background: #22222e;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  padding: 3px;
+  padding: 4px;
   gap: 2px;
 }
 
 .lang-pill {
-  padding: 4px 10px;
+  padding: 5px 12px;
   background: transparent;
-  color: var(--text-faint);
+  color: var(--text-dim);
   border: none;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;
   cursor: pointer;
@@ -234,7 +375,7 @@
 }
 
 .lang-pill:hover {
-  color: var(--text-dim);
+  color: var(--text);
 }
 
 .lang-pill-active {
@@ -257,6 +398,193 @@
   letter-spacing: 0.08em;
   color: var(--text-faint);
   margin: 0 0 14px;
+}
+
+/* Wraps a .control-group's own h3 together with an InfoTooltip badge
+   (GazeTracker.tsx's "Eye tracking" heading, so far) - the row carries the
+   heading's usual bottom margin instead, since the h3 itself needs
+   margin: 0 to sit level with the badge next to it. */
+.control-group-heading-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.control-group-heading-row h3 {
+  margin: 0;
+}
+
+/* InfoTooltip.tsx - a small "?" badge with a popover shown on hover/focus,
+   generic enough to sit next to any heading that could use a one-line
+   "what is this" explanation. cursor: help signals it's informational, not
+   clickable. */
+.info-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--text-faint);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.info-badge:hover,
+.info-badge:focus-visible {
+  border-color: var(--accent-a);
+  color: var(--accent-a);
+  outline: none;
+}
+
+.info-badge__tooltip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
+  width: 180px;
+  padding: 10px 12px;
+  background: rgba(10, 10, 14, 0.96);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.5;
+  color: var(--text);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+  pointer-events: none;
+}
+
+.info-badge:hover .info-badge__tooltip,
+.info-badge:focus-visible .info-badge__tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* TechniqueGuide.tsx - the avatar page's step-by-step guide for whichever
+   technique a specialist is trying (see that component's own comment).
+   Floats over the avatar's own canvas (rendered inside .scene-pane, which
+   is already position:relative), top-right - the same floating dark-blur
+   treatment CafeScene.tsx uses for its own guide-panel, not a sidebar
+   .control-group card: an earlier version sat in the sidebar above
+   BodySliders and was reported as awkward, since it pushed the body
+   parameters down every time it was open. */
+.technique-guide {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  width: min(280px, calc(100% - 40px));
+  background: rgba(10, 10, 14, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  color: var(--text);
+}
+
+.technique-guide__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.technique-guide__header h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.technique-guide__close {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.technique-guide__close:hover {
+  color: var(--text);
+}
+
+.technique-guide__title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.technique-guide__step {
+  padding: 12px 14px;
+  background: rgba(139, 108, 255, 0.1);
+  border: 1px solid rgba(139, 108, 255, 0.3);
+  border-radius: 10px;
+}
+
+.technique-guide__counter {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-a);
+  font-variant-numeric: tabular-nums;
+}
+
+.technique-guide__step-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  /* A few steps (defusion's wording progression) carry an intentional \n
+     - same treatment as .technique-modal-description for the same reason. */
+  white-space: pre-line;
+}
+
+.technique-guide__next {
+  width: 100%;
+  margin-top: 10px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(139, 108, 255, 0.18);
+  border: 1px solid rgba(139, 108, 255, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.technique-guide__next:hover {
+  background: rgba(139, 108, 255, 0.28);
+}
+
+.technique-guide__done {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
 }
 
 .slider-row {
@@ -685,6 +1013,42 @@ input[type='range']::-moz-range-thumb {
 .technique-modal-close:hover {
   color: var(--text);
   background: #29293a;
+}
+
+/* Jumps straight to the avatar page with this technique's own step guide
+   open there - see AvatarToolPage.tsx/TechniqueGuide's own comment. Frosted
+   glass rather than a flat solid gradient fill (requested directly, with a
+   reference screenshot of the flat version) - and the first frosted pass
+   still read as "too blue-violet" (reported directly, with its own
+   screenshot): that version applied opacity to the WHOLE button, so the
+   fully-saturated --accent-grad underneath was still mostly showing
+   through. This instead puts the translucency directly in the gradient's
+   own rgba stops over the modal's own dark background, so the color reads
+   as a faint tint behind frosted glass rather than a dimmed solid fill -
+   text stays fully opaque for contrast. The glow is what still reads as
+   "accent-colored, press me," growing further on hover. */
+.technique-modal-try {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(139, 108, 255, 0.22), rgba(91, 156, 255, 0.22));
+  backdrop-filter: blur(10px);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 16px rgba(139, 108, 255, 0.3);
+  transition: background 0.15s, box-shadow 0.2s, transform 0.15s;
+}
+
+.technique-modal-try:hover {
+  background: linear-gradient(135deg, rgba(139, 108, 255, 0.32), rgba(91, 156, 255, 0.32));
+  box-shadow: 0 0 30px rgba(139, 108, 255, 0.55);
+  transform: translateY(-1px);
 }
 
 .landing-page {
@@ -1600,10 +1964,16 @@ input[type='range']::-moz-range-thumb {
   z-index: 5;
 }
 
-/* The specialist's exposure-guide toggle - same pill look as
-   .room-overlay__hint's "Drag to look around..." bar (requested directly:
-   this exact styling), just an actual button (pointer-events: auto,
-   cursor, hover state) instead of a plain inert paragraph. */
+/* The specialist's exposure-guide toggle - originally matched
+   .room-overlay__hint's dim, inert-looking pill exactly, but several
+   specialists using the room reported never noticing it was there
+   (reported directly). A first pass gave it a solid accent-gradient fill
+   plus a pulsing glow, which read as too loud/out of place next to the
+   rest of this muted overlay style (reported directly right back - reverted).
+   Stays the same dark translucent pill as its neighbors, just with a thin
+   accent-colored border and full-opacity (not dimmed) text - enough to
+   read as "this one's different, look here" without becoming its own CTA
+   button. No animation. */
 .guide-toggle {
   pointer-events: auto;
   display: inline-flex;
@@ -1612,18 +1982,18 @@ input[type='range']::-moz-range-thumb {
   padding: 8px 14px;
   font: inherit;
   font-size: 12.5px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  font-weight: 700;
+  color: var(--text);
   background: rgba(10, 10, 14, 0.4);
   backdrop-filter: blur(4px);
-  border: none;
+  border: 1px solid rgba(139, 108, 255, 0.55);
   border-radius: 999px;
   cursor: pointer;
 }
 
 .guide-toggle:hover {
   background: rgba(10, 10, 14, 0.6);
-  color: var(--text);
+  border-color: rgba(139, 108, 255, 0.8);
 }
 
 /* The guide panel itself - deliberately compact (requested directly: this

@@ -11,6 +11,7 @@ import {
   type ConversationConfig,
 } from '../../avatar/idleAnimation';
 import { cloneGltfScene } from '../../avatar/cloneGltf';
+import { assetUrl } from '../../lib/assetUrl';
 
 /**
  * A background person for the exposure-practice rooms (see CafeScene.tsx).
@@ -67,7 +68,7 @@ export interface NpcConfig {
 }
 
 function presetUrl(preset: NpcPresetName): string {
-  return `/models/npc/${preset}.glb`;
+  return assetUrl(`/models/npc/${preset}.glb`);
 }
 
 function NpcPreset({ preset }: { preset: NpcPresetName }) {

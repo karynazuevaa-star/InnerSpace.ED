@@ -9,6 +9,18 @@ export interface TechniqueContent {
   goal: string;
   description: string;
   questions: string[];
+  // Step-by-step script for the avatar page's own guide (the
+  // "Попробовать"/"Try it" button - see MaterialsPage.tsx/AvatarToolPage.tsx
+  // and TechniqueGuide.tsx). The Russian is the psychologist's own
+  // step-by-step script for running this exercise, provided directly and
+  // kept verbatim (same "exact wording matters" rule as the rest of this
+  // file - see the top-of-file comment); the English is a careful
+  // translation of it, not a summary. A step can hold more than one
+  // sentence, and a few use an embedded line break (e.g. defusion's
+  // wording progression) - TechniqueGuide.tsx renders this with
+  // white-space: pre-line so those breaks survive. Optional because
+  // SCREENING and PSYCHOEDUCATION entries below don't use this flow.
+  avatarSteps?: string[];
 }
 
 export interface Technique {
@@ -37,6 +49,19 @@ export const TECHNIQUES: Technique[] = [
         'Можно ли оставить аватар таким, продолжая замечать эту мысль?',
         'Какое значимое действие можно совершить, даже если мысль остаётся?',
       ],
+      avatarSteps: [
+        'Вместе с клиентом настройте аватар. Уточните, что персонаж не обязан точно воспроизводить его тело.',
+        'Выберите одно изменение.',
+        'Назовите возникшую мысль, не исправляя и не оспаривая её.\nНапример: «Этот живот выглядит ужасно».',
+        'Насколько убедительной кажется эта мысль сейчас — от 0 до 100?',
+        'Какую эмоцию она вызывает?',
+        'Насколько сильно хочется изменить аватар? Например, уменьшить параметры или вернуть в исходное положение.',
+        'Постепенно измените формулировку.\n«Мой живот выглядит ужасно» →\n«У меня появилась мысль, что мой живот выглядит ужасно» →\n«Я замечаю, что у меня появилась мысль о том, что мой живот выглядит ужасно».',
+        'Побудьте с неизменённым аватаром. Можем ли мы пока оставить аватар таким и одновременно замечать эту мысль?',
+        'Насколько убедительной кажется мысль сейчас — от 0 до 100?',
+        'Что произошло с желанием изменить аватар?',
+        'Завершите упражнение вместе. Обсудите, где в повседневной жизни могло бы пригодиться разделение.',
+      ],
     },
     en: {
       title: 'Defusion from thoughts',
@@ -54,6 +79,19 @@ After that the client spends a while simply looking at the avatar, without tryin
         'How strong is the urge to change the avatar?',
         'Can the avatar stay as it is while you keep noticing this thought?',
         'What meaningful action could you take even while the thought is still there?',
+      ],
+      avatarSteps: [
+        "Set up the avatar together with the client. Make clear the character doesn't have to reproduce their body exactly.",
+        'Choose one change to make.',
+        'Have the client name the thought that comes up, without correcting or disputing it.\nFor example: "This stomach looks awful."',
+        'How convincing does this thought feel right now, from 0 to 100?',
+        'What emotion does it bring up?',
+        'How strong is the urge to change the avatar? For example, to shrink the parameter or revert it.',
+        'Gradually reshape the wording.\n"My stomach looks awful" →\n"I\'m having the thought that my stomach looks awful" →\n"I notice that I\'m having the thought that my stomach looks awful."',
+        'Spend a while with the unchanged avatar. Can we leave the avatar as it is for now while still noticing this thought?',
+        'How convincing does the thought feel now, from 0 to 100?',
+        'What happened to the urge to change the avatar?',
+        'Close the exercise together. Discuss where defusion could be useful in everyday life.',
       ],
     },
   },
@@ -73,6 +111,15 @@ After that the client spends a while simply looking at the avatar, without tryin
         'Как можно сказать это нейтральнее?',
         'Как меняется эмоциональная реакция при безоценочном описании?',
       ],
+      avatarSteps: [
+        'Настройте аватар так, чтобы он отражал субъективное представление о своём теле.',
+        'Попросите описать аватар привычными словами.',
+        'Вместе найдите оценки. «Какие слова здесь описывают то, что видно, а какие выражают отношение или оценку?»',
+        'Отделите наблюдаемое от интерпретации. Как это можно описать, не используя слова «хорошо», «плохо», «красиво» или «некрасиво»?',
+        'Переформулируйте одну фразу на нейтральную.',
+        'Повторите с несколькими убеждениями.',
+        'Перенесите навык за пределы платформы в повседневные ситуации клиента.',
+      ],
     },
     en: {
       title: 'Non-judgmental description',
@@ -87,6 +134,15 @@ The practice continues until the client can use non-judgmental language fairly r
         'What is directly visible on the screen?',
         'How could this be said more neutrally?',
         'How does the emotional reaction change with non-judgmental description?',
+      ],
+      avatarSteps: [
+        "Set up the avatar to match the client's subjective sense of their own body.",
+        'Ask the client to describe the avatar in their usual words.',
+        'Find the evaluations together. "Which words here describe what\'s visible, and which express an attitude or judgment?"',
+        'Separate what\'s observed from the interpretation. How could this be described without using words like "good," "bad," "pretty," or "ugly"?',
+        'Reshape one phrase into a neutral one.',
+        'Repeat with a few more beliefs.',
+        "Carry the skill beyond the platform into the client's everyday situations.",
       ],
     },
   },
@@ -104,6 +160,19 @@ The practice continues until the client can use non-judgmental language fairly r
         'Насколько сильно хочется изменить или избежать образа?',
         'Что изменяется, когда вы смотрите на тело целиком?',
       ],
+      avatarSteps: [
+        'Настройте аватар так, чтобы он отражал субъективное представление о своём теле.',
+        'Опишите то, что непосредственно видно на экране, без выводов о том, хорошо это или плохо.',
+        'Назовите мысль или оценку, которая появилась при взгляде на аватар.',
+        'Какую эмоцию вызвала эта мысль?',
+        'Что захотелось сделать (изменить аватар, отвернуться, продолжить рассматривать)?',
+        'Переведите взгляд с отдельной области на аватар в целом. Не ищите «хорошие» части тела и не оценивайте общий вид.',
+        'Что вы замечаете, когда смотрите на изображение целиком, а не только на одну область?',
+        'Что происходило, когда внимание было сосредоточено на одной области?',
+        'Что изменилось или не изменилось при взгляде на аватар целиком?',
+        'Можете ли вы сейчас различить увиденное, мысль, эмоцию и желание действовать? Давайте попробуем вместе.',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: 'Observing the reaction',
@@ -116,6 +185,19 @@ The practice continues until the client can use non-judgmental language fairly r
         'What did you feel like doing?',
         'How strong is the urge to change or avoid the image?',
         'What changes when you look at the whole body?',
+      ],
+      avatarSteps: [
+        "Set up the avatar to match the client's subjective sense of their own body.",
+        "Describe what's directly visible on screen, without concluding whether it's good or bad.",
+        'Name the thought or judgment that came up looking at the avatar.',
+        'What emotion did that thought bring up?',
+        'What did you feel like doing (changing the avatar, looking away, continuing to look)?',
+        'Shift your gaze from the single area to the avatar as a whole. Don\'t look for the "good" body parts or judge the overall look.',
+        'What do you notice looking at the whole image, rather than just one area?',
+        'What was happening while attention was fixed on one area?',
+        "What changed, or didn't change, when you looked at the whole avatar?",
+        "Can you tell apart what you saw, the thought, the emotion, and the urge to act, right now? Let's try together.",
+        'Close the exercise.',
       ],
     },
   },
@@ -139,6 +221,23 @@ The practice continues until the client can use non-judgmental language fairly r
         'Можно ли расширить диапазон приемлемых изменений?',
         'Что, по вашему мнению, гарантирует желаемое тело?',
       ],
+      avatarSteps: [
+        'Вы создадите три версии аватара и обсудите не «правильность» тела, а мысли и чувства, возникающие при взгляде на разные образы. Вы готовы?',
+        'Создайте образ «как я воспринимаю себя сейчас». Зафиксируйте скриншотом.',
+        'Создайте желаемый образ.',
+        'Что, по вашему ощущению, изменилось бы в жизни, если бы тело выглядело так?',
+        'Что, как вам кажется, должно гарантировать такое тело?',
+        'Что здесь для вас особенно важно?',
+        'Зафиксируйте скриншотом.',
+        'Создайте переносимый вариант. Компромисс между первым и вторым. Зафиксируйте скриншотом.',
+        'Сравните три версии. Чем они отличаются?',
+        'Какая область изменилась сильнее всего?',
+        'Почему именно эти параметры оказались важными?',
+        'Для каждой версии отдельно заметьте, какие мысли и эмоции она вызывает и куда в первую очередь направляется взгляд.',
+        'Исследуйте границы переносимости. Что помогает оставаться с этим образом, несмотря на отличие от желаемого?',
+        'Можно ли расширить диапазон приемлемых изменений?',
+        'Завершите технику.',
+      ],
     },
     en: {
       title: 'Current, desired, and tolerable body',
@@ -158,6 +257,23 @@ You compare the avatars' parameters, emotional reactions, and visual attention d
         'Can the range of acceptable variation be widened?',
         'What do you believe the desired body would guarantee you?',
       ],
+      avatarSteps: [
+        'You\'ll build three versions of the avatar and discuss not whether a body is "right," but the thoughts and feelings that come up looking at each image. Ready?',
+        'Build the image of "how I perceive myself right now." Save it as a screenshot.',
+        'Build the desired image.',
+        'What do you sense would change in your life if your body looked like this?',
+        'What do you feel this body would guarantee you?',
+        'What matters most to you here?',
+        'Save it as a screenshot.',
+        'Build a tolerable version - a compromise between the first and second. Save it as a screenshot.',
+        'Compare the three versions. How do they differ?',
+        'Which area changed the most?',
+        'Why did these particular parameters turn out to matter?',
+        'For each version separately, notice what thoughts and emotions it brings up and where your gaze goes first.',
+        'Explore the limits of tolerability. What helps you stay with this image despite it differing from the desired one?',
+        'Can the range of acceptable variation be widened?',
+        'Close the technique.',
+      ],
     },
   },
   {
@@ -176,6 +292,18 @@ You compare the avatars' parameters, emotional reactions, and visual attention d
         'Что вы чувствуете, когда не можете точно определить изменение?',
         'Обязательно ли неопределённость означает, что нужно смотреть внимательнее?',
       ],
+      avatarSteps: [
+        'Проведём несколько коротких проб: иногда один параметр аватара будет немного меняться, а иногда изображение останется прежним. В каждой пробе вам нужно будет сказать, заметили ли вы изменение и какое.',
+        'Создайте и зафиксируйте исходный образ.',
+        'Психолог меняет или не меняет один параметр, а клиент закрывает глаза.',
+        'Как вам кажется, было ли изменение? Если да, то в какую сторону?',
+        'Повторите несколько раз.',
+        'Раскройте последовательность проб. Были ли случаи, когда уверенность была высокой, но изменения не было, или наоборот?',
+        'Что вы чувствовали, когда не могли точно определить, изменилось ли изображение?',
+        'Возникало ли желание смотреть дольше или проверять снова?',
+        'Была ли зона, на которой вы фиксировались дольше или перепроверяли чаще?',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: 'Finding the discrimination threshold',
@@ -190,6 +318,18 @@ The technique reveals a kind of paradox. A person can pay a lot of attention to 
         'What were you basing that on?',
         "What do you feel when you can't pin down the change exactly?",
         'Does uncertainty necessarily mean you need to look more closely?',
+      ],
+      avatarSteps: [
+        "We'll run a few short trials: sometimes one avatar parameter will change slightly, sometimes the image will stay the same. Each trial, you'll say whether you noticed a change, and which one.",
+        'Build and save the starting image.',
+        "The specialist changes, or doesn't change, one parameter, and the client closes their eyes.",
+        'Do you think there was a change? If so, in which direction?',
+        'Repeat a few times.',
+        'Reveal the sequence of trials. Were there cases where confidence was high but there was no change, or the other way around?',
+        "What did you feel when you couldn't pin down whether the image had changed?",
+        'Did you feel the urge to look longer, or check again?',
+        'Was there a zone you fixated on longer, or rechecked more often?',
+        'Close the exercise.',
       ],
     },
   },
@@ -207,6 +347,18 @@ The technique reveals a kind of paradox. A person can pay a lot of attention to 
         'Можно ли оставить аватар неидеальным ещё на некоторое время?',
         'Что вы узнали, не выполняя привычное действие?',
       ],
+      avatarSteps: [
+        'Настройте аватар так, чтобы он отражал субъективное представление о своём теле.',
+        'Заметьте, есть ли желание что-то изменить (сузить талию, уменьшить бёдра и т. д.).',
+        'Сделайте паузу и понаблюдайте за импульсом и тревогой и за тем, как они меняются, не трогая ползунок.',
+        'Что именно хочется исправить?',
+        'Что, по вашему прогнозу, произойдёт, если этого не сделать?',
+        'Насколько сильны тревога и импульс от 0 до 100?',
+        'Как импульс меняется во время паузы?',
+        'Можно ли оставить аватар неидеальным ещё на некоторое время?',
+        'Что вы узнали, не выполняя привычное действие?',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: 'Preventing correction',
@@ -219,6 +371,18 @@ The technique reveals a kind of paradox. A person can pay a lot of attention to 
         'How does the impulse change during the pause?',
         'Can the avatar stay imperfect for a while longer?',
         'What did you learn by not doing the usual thing?',
+      ],
+      avatarSteps: [
+        "Set up the avatar to match the client's subjective sense of their own body.",
+        'Notice whether there\'s a wish to change something (narrow the waist, shrink the hips, and so on).',
+        'Pause and watch the impulse and the anxiety, and how they shift, without touching the slider.',
+        'What exactly do you want to fix?',
+        "What do you predict will happen if you don't?",
+        'How strong are the anxiety and the impulse, from 0 to 100?',
+        'How does the impulse change during the pause?',
+        'Can the avatar stay imperfect for a while longer?',
+        'What did you learn by not doing the usual thing?',
+        'Close the exercise.',
       ],
     },
   },
@@ -238,6 +402,17 @@ The technique reveals a kind of paradox. A person can pay a lot of attention to 
         'Малое количество фиксаций означает безразличие или избегание?',
         'Как изменится восприятие, если рассматривать тело целиком?',
       ],
+      avatarSteps: [
+        'Настройте аватар так, чтобы он отражал субъективное представление о своём теле.',
+        'Разделите аватар на области — привлекательные, нейтральные, непривлекательные.',
+        'Настройте айтрекинг и свободно осмотрите аватар.',
+        'Сравните карту взгляда с субъективной картой.',
+        'Какие зоны притягивают внимание? Какие почти не рассматриваются?',
+        'Совпадает ли это с вашими ожиданиями?',
+        'Малое количество фиксаций означает безразличие или избегание?',
+        'Как изменится восприятие, если рассматривать тело целиком?',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: 'Attractive, neutral, and unattractive zones',
@@ -252,6 +427,17 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'What are you trying to find out by returning to a particular zone?',
         'Does a low number of fixations mean indifference, or avoidance?',
         'How does perception change when you look at the body as a whole?',
+      ],
+      avatarSteps: [
+        "Set up the avatar to match the client's subjective sense of their own body.",
+        'Sort the avatar into areas - attractive, neutral, unattractive.',
+        'Turn on eye tracking and freely look over the avatar.',
+        'Compare the gaze map with the subjective map.',
+        'Which zones draw attention? Which are barely looked at?',
+        'Does this match what you expected?',
+        'Does a low number of fixations mean indifference, or avoidance?',
+        'How does perception change when you look at the whole body?',
+        'Close the exercise.',
       ],
     },
   },
@@ -269,6 +455,16 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'Почему одинаковое тело получает разные оценки?',
         'Как можно отнестись к себе по тем же принципам, что и к близкому?',
       ],
+      avatarSteps: [
+        'Настройте аватар так, чтобы он отражал субъективное представление о своём теле.',
+        'Что вы думаете, когда воспринимаете этот аватар как себя?',
+        'Что бы вы подумали, если бы это был незнакомый человек?',
+        'Что бы вы сказали близкому человеку с таким телом? Например, родственнице или близкой подруге.',
+        'Какие стандарты вы применяете только к себе?',
+        'Почему одинаковое тело получает разные оценки?',
+        'Как можно отнестись к себе по тем же принципам, что и к близкому?',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: 'First-person and third-person view',
@@ -281,6 +477,16 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'What standards do you apply only to yourself?',
         'Why does the same body get different evaluations?',
         'How could you treat yourself by the same standards you use for someone close to you?',
+      ],
+      avatarSteps: [
+        "Set up the avatar to match the client's subjective sense of their own body.",
+        'What do you think when you see this avatar as yourself?',
+        'What would you think if this were a stranger?',
+        'What would you say to someone close to you who had this body? A relative, say, or a close friend.',
+        'What standards do you apply only to yourself?',
+        'Why does the same body get different evaluations?',
+        'How could you treat yourself by the same standards you use for someone close to you?',
+        'Close the exercise.',
       ],
     },
   },
@@ -298,6 +504,16 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'Может ли ощущение «я выгляжу хуже» отражать эмоциональное состояние?',
         'Что поможет проверить это вне платформы?',
       ],
+      avatarSteps: [
+        'Посмотрите на аватар.',
+        'Оцените его. Насколько такие параметры кажутся вам привлекательными или непривлекательными?',
+        'Вернитесь к нему в конце вашей сессии.',
+        'Посмотрите на аватар ещё раз. Как вы сейчас к нему относитесь? Что происходило до этого? Что происходило с настроением между оценками?',
+        'Изменился ли аватар? Как изменилась его оценка? Какие зоны стали заметнее?',
+        'Может ли ощущение «я выгляжу хуже» отражать эмоциональное состояние?',
+        'Что поможет проверить это вне платформы?',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: "Mood's influence on body image",
@@ -310,6 +526,16 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'Which areas became more noticeable?',
         'Could the feeling "I look worse" reflect your emotional state?',
         'What could help you check this outside the platform?',
+      ],
+      avatarSteps: [
+        'Look at the avatar.',
+        'Rate it. How attractive or unattractive do these parameters feel to you?',
+        'Come back to it at the end of your session.',
+        'Look at the avatar again. How do you feel about it now? What had happened before that? What was happening with your mood between ratings?',
+        'Did the avatar change? How did your rating of it change? Which areas became more noticeable?',
+        'Could the feeling "I look worse" reflect your emotional state?',
+        'What could help you check this outside the platform?',
+        'Close the exercise.',
       ],
     },
   },
@@ -328,6 +554,15 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'От чего придётся отказаться?',
         'Каким может быть достаточно приемлемое тело?',
       ],
+      avatarSteps: [
+        'Настройте аватар так, чтобы воссоздать идеальную версию фигуры для вас.',
+        'Откуда появились эти представления об идеальном теле? Какие люди, изображения или комментарии на них повлияли?',
+        'Гарантирует ли такое тело принятие и безопасность?',
+        'Останется ли этот идеал прежним через год? Менялось ли понятие идеала спустя время раньше?',
+        'Что потребуется для его постоянного поддержания? От чего придётся отказаться?',
+        'Каким может быть достаточно приемлемое тело? Создайте достаточно приемлемый аватар, совместимый со здоровьем, отношениями и полноценной жизнью.',
+        'Завершите упражнение.',
+      ],
     },
     en: {
       title: 'Ideal vs. good-enough avatar',
@@ -342,6 +577,15 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'What would you have to give up for it?',
         'What could a good-enough body look like?',
       ],
+      avatarSteps: [
+        'Set up the avatar to recreate your ideal version of the figure.',
+        'Where did these ideas about an ideal body come from? Which people, images, or comments shaped them?',
+        'Does having that body guarantee acceptance and safety?',
+        'Will this ideal still be the same a year from now? Has your idea of the ideal changed over time before?',
+        'What would it take to maintain it indefinitely? What would you have to give up?',
+        "What could a good-enough body look like? Build a good-enough avatar, one that's compatible with health, relationships, and a full life.",
+        'Close the exercise.',
+      ],
     },
   },
   {
@@ -351,7 +595,9 @@ Several explanations are possible here. Attention might stay fixed on unattracti
       goal: 'Проверить пугающие ожидания и развивать переносимость изменений тела без немедленного исправления аватара.',
       description: `Клиент выбирает один параметр (живот, талию, бёдра, руки или общий объём тела). До изменения он оценивает по шкале от 0 до 100, насколько тревожно ему будет и насколько сильно захочется вернуть всё как было. Вы по согласованию с клиентом передвигаете ползунок, и клиент какое-то время просто смотрит на аватар, не исправляя его.
 
-Вы фиксируете реальные эмоции, мысли, импульс отменить изменение и показатели айтрекинга, а потом сравниваете прогноз с тем, что произошло на самом деле. Дальше вы вместе с клиентом решаете, повторить этот уровень, изменить шаг изменения, перейти дальше или закончить упражнение.`,
+Затем вы фиксируете реальные эмоции, мысли, импульс отменить изменение, а потом сравниваете прогноз с тем, что произошло на самом деле.
+
+Таким образом, вы исследуете с клиентом, что предсказания могут быть разными и необязательно отражать реальность.`,
       questions: [
         'Какой реакции вы ожидаете?',
         'Что это изменение будет для вас означать?',
@@ -361,13 +607,24 @@ Several explanations are possible here. Attention might stay fixed on unattracti
         'Изменилась ли тревога без возвращения ползунка?',
         'Что нового вы узнали?',
       ],
+      avatarSteps: [
+        'Выберите один параметр (живот, талию, бёдра, руки или общий объём тела).',
+        'Насколько вам тревожно, если эта часть вас увеличится или уменьшится? Оцените от 0 до 100.',
+        'Какой реакции вы ожидаете от изменения части? Что это изменение будет для вас означать?',
+        'Что, по вашему прогнозу, произойдёт, если изменить аватар?',
+        'Психолог медленно перемещает ползунок для изменения параметров.',
+        'Какова ваша реакция сейчас? Совпала ли реальная реакция с ожиданием?',
+        'Завершите технику.',
+      ],
     },
     en: {
       title: 'Predicting the reaction',
       goal: 'Test frightening expectations and build tolerance for body changes without immediately correcting the avatar.',
       description: `The client picks one parameter (stomach, waist, hips, arms, or overall body volume). Before the change, they rate on a 0 to 100 scale how anxious they expect to feel and how strong the urge to revert will be. You move the slider with the client's agreement, and the client spends a while just looking at the avatar without correcting it.
 
-You record the actual emotions, thoughts, the impulse to undo the change, and the eye-tracking readings, then compare the prediction with what actually happened. After that, you and the client decide together whether to repeat this level, change the step size, move on, or end the exercise.`,
+Then you record the actual emotions, thoughts, and the impulse to undo the change, and compare the prediction with what actually happened.
+
+In this way, you and the client explore how predictions can vary and don't necessarily reflect reality.`,
       questions: [
         'What reaction do you expect?',
         'What would this change mean for you?',
@@ -376,6 +633,15 @@ You record the actual emotions, thoughts, the impulse to undo the change, and th
         'Did the actual reaction match the expectation?',
         'Did the anxiety change without moving the slider back?',
         'What did you learn?',
+      ],
+      avatarSteps: [
+        'Pick one parameter (stomach, waist, hips, arms, or overall body volume).',
+        'How anxious would you feel if this part of you got bigger or smaller? Rate it from 0 to 100.',
+        'What reaction do you expect from changing this part? What would this change mean for you?',
+        'What do you predict will happen if the avatar is changed?',
+        'The specialist slowly moves the slider to change the parameter.',
+        "What's your reaction right now? Did the actual reaction match the expectation?",
+        'Close the technique.',
       ],
     },
   },
@@ -430,13 +696,13 @@ Save not just the image but the numeric parameter values too. Screenshots and re
     ru: {
       title: 'Карта удовлетворённости и зрительного внимания',
       goal: 'Сопоставить субъективную удовлетворённость областями тела с распределением взгляда.',
-      description: `Клиент проходит BASS, и вы вместе создаёте аватар, который соответствует его субъективному восприятию себя. Дальше вы проводите короткий свободный просмотр с айтрекингом.
+      description: `Клиент проходит MBSRQ, и вы вместе создаёте аватар, который соответствует его субъективному восприятию себя. Дальше вы проводите короткий свободный просмотр с айтрекингом.
 
-Вы сопоставляете результаты BASS со временем взгляда на разные области, количеством фиксаций, возвращениями к отдельным зонам и возможным избеганием некоторых областей.
+Вы сопоставляете результаты MBSRQ со временем взгляда на разные области, количеством фиксаций, возвращениями к отдельным зонам и возможным избеганием некоторых областей.
 
 Техника может помочь заметить зоны, которые клиент не назвал значимыми, но куда регулярно возвращается его взгляд. При этом айтрекинг не раскрывает «скрытые проблемы» сам по себе. Фиксация взгляда может отражать тревогу, интерес, проверку или просто особенности самого изображения.`,
       questions: [
-        'Что вы думаете о результатах BASS?',
+        'Что вы думаете о результатах MBSRQ?',
         'Совпали ли они с вашими ожиданиями?',
         'Что вы замечаете в распределении взгляда?',
         'Какие зоны притягивают внимание?',
@@ -450,13 +716,13 @@ Save not just the image but the numeric parameter values too. Screenshots and re
     en: {
       title: 'Satisfaction and visual attention map',
       goal: "Compare subjective satisfaction with body areas against where the client's gaze actually goes.",
-      description: `The client completes the BASS, and you build an avatar together that matches their subjective self-perception. Then you run a short free-viewing period with eye tracking.
+      description: `The client completes the MBSRQ, and you build an avatar together that matches their subjective self-perception. Then you run a short free-viewing period with eye tracking.
 
-You compare the BASS results against time spent looking at different areas, number of fixations, returns to particular zones, and possible avoidance of certain areas.
+You compare the MBSRQ results against time spent looking at different areas, number of fixations, returns to particular zones, and possible avoidance of certain areas.
 
 The technique can help surface zones the client didn't name as significant but that their gaze keeps returning to. Eye tracking doesn't reveal "hidden problems" on its own, though. A fixation can reflect anxiety, interest, checking, or simply features of the image itself.`,
       questions: [
-        'What do you think about your BASS results?',
+        'What do you think about your MBSRQ results?',
         'Did they match what you expected?',
         'What do you notice about where your gaze went?',
         'Which zones draw attention?',

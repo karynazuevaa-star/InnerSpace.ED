@@ -4,6 +4,7 @@ import { useGLTF, OrbitControls } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { useLanguage } from '../i18n/LanguageContext';
+import { assetUrl } from '../lib/assetUrl';
 import { SceneLoader } from './SceneLoader';
 import { SceneErrorBoundary } from './SceneErrorBoundary';
 import { SceneErrorScreen } from './SceneErrorScreen';
@@ -50,7 +51,7 @@ void main() {
  * finds and re-materials clothing meshes on the avatar body.
  */
 function BrainMesh({ selectedId, onSelect }: { selectedId: string; onSelect: (id: string) => void }) {
-  const { scene } = useGLTF('/models/brain.glb?v=1');
+  const { scene } = useGLTF(assetUrl('/models/brain.glb?v=1'));
   const regionMeshesRef = useRef<Record<string, THREE.Mesh>>({});
 
   // Finding the shell mesh is a pure read of `scene` - safe to derive
@@ -264,4 +265,4 @@ export function BrainViewer() {
   );
 }
 
-useGLTF.preload('/models/brain.glb?v=1');
+useGLTF.preload(assetUrl('/models/brain.glb?v=1'));

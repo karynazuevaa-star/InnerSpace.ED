@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { TECHNIQUES, SCREENING, PSYCHOEDUCATION, INSTRUMENTS, type Technique, type Instrument } from '../content/techniques';
 import { BrainViewer } from '../components/BrainViewer';
@@ -16,6 +17,7 @@ const LISTS: Record<Folder, Technique[]> = {
 
 export function MaterialsPage() {
   const { t, lang } = useLanguage();
+  const navigate = useNavigate();
   const [folder, setFolder] = useState<Folder>('techniques');
   const [psychoTab, setPsychoTab] = useState<PsychoTab>('brain');
   const [open, setOpen] = useState<OpenItem | null>(null);
@@ -134,6 +136,23 @@ export function MaterialsPage() {
                 <li key={i}>{q}</li>
               ))}
             </ul>
+
+            {/* Only techniques that carry avatarSteps get this button -
+                SCREENING's two Technique entries don't define it, so they
+                fall back to no button rather than an empty guide. Jumps
+                straight to /avatar with the technique id in route state;
+                AvatarToolPage picks it up (it stays permanently mounted -
+                see App.tsx's own comment on why - so this has to travel
+                through location.state, not a prop). */}
+            {open.item[lang].avatarSteps && (
+              <button
+                type="button"
+                className="technique-modal-try"
+                onClick={() => navigate('/avatar', { state: { techniqueId: open.item.id } })}
+              >
+                {t('techniques.tryButton')}
+              </button>
+            )}
           </div>
         </div>
       )}
