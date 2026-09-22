@@ -17,7 +17,7 @@ import type { HairStyle } from '../components/Hair';
  * picker still works here so both pages can be compared at the same pose.
  */
 function outfitUrl(part: string): string {
-  return assetUrl(`/models/outfits/${part}.glb?v=7`);
+  return assetUrl(`/models/outfits/${part}.glb?v=8`);
 }
 
 const TOP = 'croptop';

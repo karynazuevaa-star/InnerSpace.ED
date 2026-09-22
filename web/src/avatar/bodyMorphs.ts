@@ -83,7 +83,16 @@ export function applyBodyMorphs(bodyRoot: THREE.Object3D, state: BodyMorphState)
   // 0.35 so the arms slider reads clearly across its whole range
   // regardless of where weight sits, while weight alone still visibly
   // thins the arms like every other limb/torso target.
-  applyPair(setNamed, 'weight_arm', state.weight * 0.35 + state.arms);
+  //
+  // Four separate targets (both sides, upper+lower arm) instead of one -
+  // see pipeline/scripts/02_generate_body.py's own comment on why a
+  // single upper-arm-only target read as pinched at the elbow and
+  // "pumped" rather than fat at the top of its range.
+  const armSignal = state.weight * 0.35 + state.arms;
+  applyPair(setNamed, 'weight_arm_upper_l', armSignal);
+  applyPair(setNamed, 'weight_arm_upper_r', armSignal);
+  applyPair(setNamed, 'weight_arm_lower_l', armSignal);
+  applyPair(setNamed, 'weight_arm_lower_r', armSignal);
   applyPair(setNamed, 'weight_thigh', Math.min(state.weight * 0.8 + state.legs, 0.85));
 
   // MakeHuman's target library has exactly one shape that projects the

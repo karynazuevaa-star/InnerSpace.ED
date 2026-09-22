@@ -11,7 +11,7 @@ import { assetUrl } from '../lib/assetUrl';
 import type { HairStyle } from '../components/Hair';
 
 function outfitUrl(part: string): string {
-  return assetUrl(`/models/outfits/${part}.glb?v=7`);
+  return assetUrl(`/models/outfits/${part}.glb?v=8`);
 }
 
 // The outfit is fixed - jeans and a tank top, no other choice and no "no

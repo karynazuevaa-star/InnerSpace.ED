@@ -75,8 +75,24 @@ CURATED_TARGETS = [
     ("torso/torso-scale-horiz-incr.target.gz", "weight_torso_horiz_incr"),
     ("torso/torso-scale-depth-decr.target.gz", "weight_torso_depth_decr"),
     ("torso/torso-scale-depth-incr.target.gz", "weight_torso_depth_incr"),
-    ("arms/measure-upperarm-circ-decr.target.gz", "weight_arm_decr"),
-    ("arms/measure-upperarm-circ-incr.target.gz", "weight_arm_incr"),
+    # Was a single "measure-upperarm-circ" pair (upper arm only) - reported
+    # directly as looking odd at both ends: thinning out in "one small
+    # zone" near the elbow (the forearm never moved, so a big change to
+    # just the upper arm reads as a pinch where they meet) and looking
+    # "pumped" rather than fatter at the top (a raw circumference-measure
+    # target, not a fat-specific one, on a mesh whose muscle definition is
+    # already baked in). Four dedicated fat targets (both sides, both arm
+    # segments) fix both: upper+lower move together for a smooth taper
+    # along the whole limb, and "fat" (not the separate "muscle" targets
+    # MPFB also ships) reads as soft tissue growing, not flexing.
+    ("arms/l-upperarm-fat-decr.target.gz", "weight_arm_upper_l_decr"),
+    ("arms/l-upperarm-fat-incr.target.gz", "weight_arm_upper_l_incr"),
+    ("arms/r-upperarm-fat-decr.target.gz", "weight_arm_upper_r_decr"),
+    ("arms/r-upperarm-fat-incr.target.gz", "weight_arm_upper_r_incr"),
+    ("arms/l-lowerarm-fat-decr.target.gz", "weight_arm_lower_l_decr"),
+    ("arms/l-lowerarm-fat-incr.target.gz", "weight_arm_lower_l_incr"),
+    ("arms/r-lowerarm-fat-decr.target.gz", "weight_arm_lower_r_decr"),
+    ("arms/r-lowerarm-fat-incr.target.gz", "weight_arm_lower_r_incr"),
     ("legs/measure-thigh-circ-decr.target.gz", "weight_thigh_decr"),
     ("legs/measure-thigh-circ-incr.target.gz", "weight_thigh_incr"),
     # --- "stomach / belly" slider (apple-shape emphasis) ---

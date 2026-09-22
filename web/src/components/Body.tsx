@@ -7,7 +7,7 @@ import { primeIdleAnimationRestPose } from '../avatar/idleAnimation';
 import { assetUrl } from '../lib/assetUrl';
 
 export function Body({ morphs }: { morphs: BodyMorphState }) {
-  const { scene } = useGLTF(assetUrl('/models/body.glb?v=13'));
+  const { scene } = useGLTF(assetUrl('/models/body.glb?v=14'));
   const { setHeadBone, registerPosableScene, unregisterPosableScene } = useAvatarContext();
   const rootRef = useRef<THREE.Group>(null);
 
@@ -45,4 +45,4 @@ export function Body({ morphs }: { morphs: BodyMorphState }) {
   return <primitive ref={rootRef} object={scene} dispose={null} />;
 }
 
-useGLTF.preload(assetUrl('/models/body.glb?v=13'));
+useGLTF.preload(assetUrl('/models/body.glb?v=14'));
