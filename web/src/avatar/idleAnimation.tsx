@@ -62,6 +62,23 @@ const seatedForwardCache = new WeakMap<THREE.Object3D, THREE.Vector3>();
 // ConversationConfig for why).
 const headTurnSpring = new WeakMap<THREE.Object3D, { pitch: SpringMotion; yaw: SpringMotion }>();
 
+// Bumped by resetIdleLookState() - called from Body.tsx's mount effect
+// whenever the body/skin scene changes - so IdleAnimation re-zeroes its
+// mouse-look spring instead of carrying the old yaw/pitch over onto the
+// brand-new skeleton. IdleAnimation lives as a sibling of Body/Hair's
+// Suspense boundary (AvatarScene.tsx), not inside it, so it never remounts
+// on a skin switch - its lookSpring/mouseIdleSeconds/gaze refs are plain
+// per-component state with no scene-keyed lifecycle of their own, unlike
+// restMap above. Without this, switching skin (or hairstyle, since the
+// head just stays wherever it last was) while the avatar was mid-turn made
+// the NEW head bone snap straight to that stale angle in a single frame -
+// reported directly, with screenshots, after the caucasian->asian->african
+// sequence each landed with the head turned like the previous one's.
+let idleLookResetGeneration = 0;
+export function resetIdleLookState() {
+  idleLookResetGeneration += 1;
+}
+
 // Lazily captures each bone's rest quaternion the first time it's seen (the
 // glTF bind pose, since nothing poses these scenes before this runs) and
 // applies the same rest-relative rotation across every registered scene, so
@@ -711,6 +728,7 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
   const gazeAnchor = useRef({ x: 0, y: 0 });
   const gazeDwellSeconds = useRef(0);
   const gazeBoredom = useRef(0);
+  const lastLookResetGeneration = useRef(idleLookResetGeneration);
 
   useEffect(() => {
     const MOUSE_MOVE_EPSILON = 3;
@@ -739,6 +757,17 @@ export function IdleAnimation({ weight, butt, legs }: { weight: number; butt: nu
   }, [canvasEl]);
 
   useFrame(({ clock }, frameDelta) => {
+    if (lastLookResetGeneration.current !== idleLookResetGeneration) {
+      lastLookResetGeneration.current = idleLookResetGeneration;
+      lookSpring.current.x.value = 0;
+      lookSpring.current.x.velocity = 0;
+      lookSpring.current.y.value = 0;
+      lookSpring.current.y.velocity = 0;
+      mouseIdleSeconds.current = Infinity;
+      gazeAnchor.current = { x: 0, y: 0 };
+      gazeDwellSeconds.current = 0;
+      gazeBoredom.current = 0;
+    }
     const scenes = posableScenes;
     if (scenes.size === 0) return;
     const delta = Math.min(frameDelta, 1 / 30);

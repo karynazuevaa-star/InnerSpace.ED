@@ -3,7 +3,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { applyBodyMorphs, type BodyMorphState } from '../avatar/bodyMorphs';
 import { useAvatarContext } from '../avatar/AvatarContext';
-import { primeIdleAnimationRestPose } from '../avatar/idleAnimation';
+import { primeIdleAnimationRestPose, resetIdleLookState } from '../avatar/idleAnimation';
 
 // url is which skin/ethnicity variant to load (see bodyUrl() in
 // AvatarToolPage.tsx) - no module-level preload here anymore, since there
@@ -28,6 +28,11 @@ export function Body({ morphs, url }: { morphs: BodyMorphState; url: string }) {
     // Before this scene has been through a single animation frame - see
     // primeIdleAnimationRestPose's own comment for why that timing matters.
     primeIdleAnimationRestPose(scene);
+    // A skin switch swaps in a brand-new skeleton here, but IdleAnimation
+    // itself never remounts (it sits outside this Suspense boundary) - see
+    // resetIdleLookState's own comment for why that left the new head
+    // snapped to whatever angle the old one was mid-turn to.
+    resetIdleLookState();
     registerPosableScene(scene);
     return () => {
       setHeadBone(null);
