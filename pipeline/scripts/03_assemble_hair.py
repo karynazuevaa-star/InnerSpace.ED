@@ -131,9 +131,23 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
     hairline to sit just above the brows without visibly thinning the
     crown's coverage; pushing further (0.022/0.01) barely changed the
     render, so there's no benefit to going higher.
+
+    First version applied hairline_down/hairline_forward_extra as a flat
+    per-vertex ON/OFF step at hairline_threshold - fine for `distance` vs
+    `hairline_distance` above (both scaled along each vertex's own normal,
+    which varies smoothly across the surface, so neighbors on either side
+    of the threshold still land close together), but a flat Z/Y
+    translation has no such continuity: verts just past the threshold
+    jumped by the full amount while their immediate neighbors just before
+    it got none, tearing a literal gap in the mesh at that seam - reported
+    directly as a bald wedge cutting into the hairline. Ramping the shift
+    0->1 over (hairline_threshold, blend_end) with a smoothstep instead of
+    a step fixes that: the extra shift fades in gradually so the seam
+    stays contiguous.
     """
     if hairline_distance is None:
         hairline_distance = distance
+    blend_end = max(hairline_threshold + 0.001, 0.85)
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bm.normal_update()
@@ -145,8 +159,10 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
             offset.y = max_forward
         v.co += offset
         if is_hairline:
-            v.co.z -= hairline_down
-            v.co.y += hairline_forward_extra
+            t = max(0.0, min(1.0, (v.normal.y - hairline_threshold) / (blend_end - hairline_threshold)))
+            t = t * t * (3 - 2 * t)
+            v.co.z -= hairline_down * t
+            v.co.y += hairline_forward_extra * t
     bm.to_mesh(obj.data)
     bm.free()
     obj.data.update()
