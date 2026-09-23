@@ -1,5 +1,6 @@
 import type { BodyMorphState } from '../avatar/bodyMorphs';
 import { useLanguage } from '../i18n/LanguageContext';
+import { InfoTooltip } from './InfoTooltip';
 
 const SLIDERS: { key: keyof BodyMorphState; labelKey: string }[] = [
   { key: 'weight', labelKey: 'body.weight' },
@@ -22,7 +23,10 @@ export function BodySliders({
   const { t } = useLanguage();
   return (
     <div className="control-group">
-      <h3>{t('body.heading')}</h3>
+      <div className="control-group-heading-row">
+        <h3>{t('body.heading')}</h3>
+        <InfoTooltip text={t('body.infoTooltip')} />
+      </div>
       {SLIDERS.map(({ key, labelKey }) => (
         <label key={key} className="slider-row">
           <span>

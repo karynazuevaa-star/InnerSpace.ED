@@ -72,6 +72,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'scene.controls.zoomOut': 'Отдалить',
 
     'body.heading': 'Тело',
+    'body.infoTooltip': 'Значения ниже — не сантиметры, проценты или вес. Это условная шкала для субъективной настройки параметров, которая может использоваться в некоторых техниках.',
     'body.weight': 'Вес',
     'body.belly': 'Живот',
     'body.waist': 'Талия',
@@ -249,6 +250,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'scene.controls.zoomOut': 'Zoom out',
 
     'body.heading': 'Body',
+    'body.infoTooltip': "The numbers below aren't centimeters, percent, or weight - they're a relative scale for subjective adjustment of the parameters, which some techniques use.",
     'body.weight': 'Weight',
     'body.belly': 'Belly',
     'body.waist': 'Waist',
