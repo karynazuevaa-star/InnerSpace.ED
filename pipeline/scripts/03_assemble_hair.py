@@ -74,7 +74,8 @@ def fit_hair(HumanService, basemesh):
     return hair_obj
 
 
-def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=None, hairline_threshold=0.5):
+def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=None, hairline_threshold=0.5,
+                    hairline_down=0.0, hairline_forward_extra=0.0):
     """
     The fitted hair shell sits almost exactly on the scalp surface, which
     z-fights with it in the renderer (worst from steep angles - straight
@@ -114,6 +115,22 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
     single-distance behavior) lets the two regions move independently:
     full distance where z-fighting actually needs it, a much smaller one
     at the hairline where any extra movement just relocates the fringe.
+
+    Separately: the MHCLO fit itself (before any of the above) lands the
+    hairline noticeably higher than the eyebrows - a widow's-peak silhouette
+    with a tall bare forehead underneath, confirmed by direct render
+    comparison against the actual skinned body (not just the raw basemesh).
+    That gap is in the FITTED position, not something the normal-offset
+    above ever touches (it only pushes geometry away from the scalp along
+    its own normal, which for hairline verts is mostly +Y/forward - it
+    can't move them -Z/down toward the brows). `hairline_down`/
+    `hairline_forward_extra` do that as a flat translation on top of the
+    normal-offset, hairline verts only, so the crown's z-fighting fix above
+    is untouched. Tuned by rendering the actual body+hair combo (not just
+    hair alone) at several values - 0.02 down / 0.006 forward brought the
+    hairline to sit just above the brows without visibly thinning the
+    crown's coverage; pushing further (0.022/0.01) barely changed the
+    render, so there's no benefit to going higher.
     """
     if hairline_distance is None:
         hairline_distance = distance
@@ -121,11 +138,15 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
     bm.from_mesh(obj.data)
     bm.normal_update()
     for v in bm.verts:
-        d = hairline_distance if v.normal.y > hairline_threshold else distance
+        is_hairline = v.normal.y > hairline_threshold
+        d = hairline_distance if is_hairline else distance
         offset = v.normal * d
         if offset.y > max_forward:
             offset.y = max_forward
         v.co += offset
+        if is_hairline:
+            v.co.z -= hairline_down
+            v.co.y += hairline_forward_extra
     bm.to_mesh(obj.data)
     bm.free()
     obj.data.update()
@@ -272,10 +293,18 @@ def main():
     # same time - two different regions wanting two different amounts of
     # movement. hairline_distance now drives them independently: full
     # distance at the crown, a small one at the hairline.
+    #
+    # hairline_down/hairline_forward_extra (all races, see lift_off_scalp's
+    # docstring): the fitted hairline sits well above the eyebrows with a
+    # bare, too-tall forehead underneath - reported on the caucasian variant
+    # specifically, so this isn't a race-specific fit issue, it's the base
+    # MHCLO fit itself. Applies uniformly on top of whichever branch below.
     if BODY_RACE == "caucasian":
-        lift_off_scalp(hair_obj, distance=0.03, max_forward=0.0035)
+        lift_off_scalp(hair_obj, distance=0.03, max_forward=0.008,
+                        hairline_down=0.02, hairline_forward_extra=0.006)
     else:
-        lift_off_scalp(hair_obj, distance=0.03, hairline_distance=0.008, max_forward=0.0035)
+        lift_off_scalp(hair_obj, distance=0.03, hairline_distance=0.008, max_forward=0.008,
+                        hairline_down=0.02, hairline_forward_extra=0.006)
     weld_back_seam(hair_obj)
     add_seam_clearance(hair_obj)
     z_min, z_max = z_bounds(hair_obj)
