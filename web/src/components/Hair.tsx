@@ -4,11 +4,17 @@ import * as THREE from 'three';
 import { useAttachToHead, useAvatarContext } from '../avatar/AvatarContext';
 import { makeHairTintable } from '../avatar/hairTint';
 import { assetUrl } from '../lib/assetUrl';
+import { skinSuffix, type Skin } from '../avatar/skin';
 
 export type HairStyle = 'long' | 'medium' | 'short';
 
-export function Hair({ style, color }: { style: HairStyle; color: string }) {
-  const { scene } = useGLTF(assetUrl(`/models/hair/${style}.glb?v=24`));
+// This hairstyle is scalp-fit (real MHCLO fitting, not a rigid attach) to
+// one specific head shape per pipeline/scripts/03_assemble_hair.py - a
+// caucasian-fit hair floated above the asian/african head with a visible
+// bald gap at the hairline once actually seen on those bodies, so `skin`
+// picks the matching pre-fit variant the same way Body/OutfitPiece do.
+export function Hair({ style, color, skin }: { style: HairStyle; color: string; skin: Skin }) {
+  const { scene } = useGLTF(assetUrl(`/models/hair/${style}${skinSuffix(skin)}.glb?v=24`));
   const { headBone } = useAvatarContext();
 
   useEffect(() => {

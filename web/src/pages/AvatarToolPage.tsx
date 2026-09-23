@@ -54,6 +54,7 @@ export function AvatarToolPage() {
           config={{
             morphs,
             bodyUrl: bodyUrl(skin),
+            skin,
             hairStyle,
             hairColor,
             topUrl: outfitUrl(TOP, skin),

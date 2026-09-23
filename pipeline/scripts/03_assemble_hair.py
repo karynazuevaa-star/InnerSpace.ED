@@ -25,6 +25,20 @@ VARIANTS = {
     "short": 0.28,
 }
 
+# Must match 02_generate_body.py's own BODY_RACE - this hairstyle is fit
+# (real MHCLO scalp fitting, not just a rigid attach) to ONE specific
+# basemesh shape, and race macrodetail changes head/scalp shape enough
+# that hair fit to the caucasian head floated above the asian one with a
+# visible bald gap at the hairline once actually seen on that body -
+# needs its own fit per race, same as the outfits already do.
+BODY_RACE = os.environ.get("BODY_RACE", "caucasian")
+RACE_MACRO_DETAILS = {
+    "caucasian": {"african": 0.0, "asian": 0.0, "caucasian": 1.0},
+    "asian": {"african": 0.0, "asian": 1.0, "caucasian": 0.0},
+    "african": {"african": 1.0, "asian": 0.0, "caucasian": 0.0},
+}
+RACE_SUFFIX = "" if BODY_RACE == "caucasian" else f"-{BODY_RACE}"
+
 
 def clear_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -42,7 +56,7 @@ def create_basemesh(HumanService, TargetService):
     # body up front means there's slack to spare instead of a gap to fill
     # at the high end, at the cost of a slightly looser drape at slider=0.
     macro_details["weight"] = 1.0
-    macro_details["race"] = {"african": 0.0, "asian": 0.0, "caucasian": 1.0}
+    macro_details["race"] = RACE_MACRO_DETAILS[BODY_RACE]
     return HumanService.create_human(macro_detail_dict=macro_details)
 
 
@@ -214,7 +228,7 @@ def export_glb(obj, name):
     bpy.ops.object.select_all(action="DESELECT")
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
-    out_path = os.path.join(OUT_DIR, f"{name}.glb")
+    out_path = os.path.join(OUT_DIR, f"{name}{RACE_SUFFIX}.glb")
     bpy.ops.export_scene.gltf(
         filepath=out_path,
         use_selection=True,

@@ -16,6 +16,7 @@ import { SceneErrorScreen } from './SceneErrorScreen';
 import { GazeHeatmap } from '../gaze/GazeHeatmap';
 import { useLanguage } from '../i18n/LanguageContext';
 import type { BodyMorphState } from '../avatar/bodyMorphs';
+import type { Skin } from '../avatar/skin';
 
 // Which of the 4 orbit directions are currently held down - shared between
 // the keyboard listener and the on-screen click-and-hold buttons below.
@@ -97,6 +98,7 @@ function KeyboardOrbitControl({
 export interface AvatarConfig {
   morphs: BodyMorphState;
   bodyUrl: string;
+  skin: Skin;
   hairStyle: HairStyle | '';
   hairColor: string;
   topUrl: string;
@@ -321,7 +323,7 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
             </Suspense>
             {config.hairStyle && (
               <Suspense fallback={null}>
-                <Hair style={config.hairStyle} color={config.hairColor} />
+                <Hair style={config.hairStyle} color={config.hairColor} skin={config.skin} />
               </Suspense>
             )}
           </SceneErrorBoundary>

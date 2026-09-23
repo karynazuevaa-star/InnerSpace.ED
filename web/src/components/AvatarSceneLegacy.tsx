@@ -76,7 +76,7 @@ export function AvatarSceneLegacy({ config }: { config: AvatarConfig }) {
               <HeadAttachmentLegacy url={assetUrl('/models-legacy/eyes.glb')} />
               <HeadAttachmentLegacy url={assetUrl('/models-legacy/eyebrows.glb')} transparent />
               <HeadAttachmentLegacy url={assetUrl('/models-legacy/eyelashes.glb')} transparent />
-              {config.hairStyle && <Hair style={config.hairStyle} color={config.hairColor} />}
+              {config.hairStyle && <Hair style={config.hairStyle} color={config.hairColor} skin="caucasian" />}
             </Suspense>
           </SceneErrorBoundary>
           {/* No IdleAnimation here - this page is the "before animation,

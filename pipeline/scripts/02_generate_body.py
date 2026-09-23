@@ -75,7 +75,7 @@ RACE_SKIN_MHMAT = {
         # to plain skin so only the real meshes show.
         "darthfurby_caucasian_female_noeyes.mhmat",
     ),
-    "asian": os.path.join(ROOT, "assets_src", "skin", "middleage_asian_female", "middleage_asian_female.mhmat"),
+    "asian": os.path.join(ROOT, "assets_src", "skin", "young_asian_female", "young_asian_female.mhmat"),
     "african": os.path.join(ROOT, "assets_src", "skin", "young_african_female", "young_african_female.mhmat"),
 }
 SKIN_MHMAT = RACE_SKIN_MHMAT[BODY_RACE]
