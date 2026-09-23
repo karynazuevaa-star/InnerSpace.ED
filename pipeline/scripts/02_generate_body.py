@@ -49,15 +49,36 @@ MPFB_TARGETS_DIR = os.environ.get(
     "MPFB_TARGETS_DIR",
     os.path.join(_EXTENSIONS_ROOT, "blender_org", "mpfb", "data", "targets"),
 )
-SKIN_MHMAT = os.path.join(
-    ROOT, "assets_src", "skin", "darthfurby_caucasian_female",
-    # "_noeyes" variant: the stock texture paints eyeliner/lash makeup and
-    # eyebrows directly onto the face - redundant and visibly doubled once
-    # the real eyes/eyebrows/eyelashes meshes fitted below render on top of
-    # it. This variant has those regions painted back to plain skin so only
-    # the real meshes show.
-    "darthfurby_caucasian_female_noeyes.mhmat",
-)
+
+# Which ethnicity variant to build - set via BODY_RACE, defaults to the
+# original caucasian body so a plain re-run behaves exactly as before.
+# asian/african don't have a "_noeyes" retouched skin like the caucasian
+# one (see the comment below) - MAKESKIN's stock eyeliner/brow painting on
+# those may show through faintly under the real eyebrow/eyelash meshes;
+# flagged for a follow-up pass if it reads as visibly doubled once seen on
+# the actual avatar, not fixed preemptively.
+BODY_RACE = os.environ.get("BODY_RACE", "caucasian")
+BODY_OUT_NAME = os.environ.get("BODY_OUT_NAME", "body")
+
+RACE_MACRO_DETAILS = {
+    "caucasian": {"african": 0.0, "asian": 0.0, "caucasian": 1.0},
+    "asian": {"african": 0.0, "asian": 1.0, "caucasian": 0.0},
+    "african": {"african": 1.0, "asian": 0.0, "caucasian": 0.0},
+}
+RACE_SKIN_MHMAT = {
+    "caucasian": os.path.join(
+        ROOT, "assets_src", "skin", "darthfurby_caucasian_female",
+        # "_noeyes" variant: the stock texture paints eyeliner/lash makeup
+        # and eyebrows directly onto the face - redundant and visibly
+        # doubled once the real eyes/eyebrows/eyelashes meshes fitted below
+        # render on top of it. This variant has those regions painted back
+        # to plain skin so only the real meshes show.
+        "darthfurby_caucasian_female_noeyes.mhmat",
+    ),
+    "asian": os.path.join(ROOT, "assets_src", "skin", "middleage_asian_female", "middleage_asian_female.mhmat"),
+    "african": os.path.join(ROOT, "assets_src", "skin", "young_african_female", "young_african_female.mhmat"),
+}
+SKIN_MHMAT = RACE_SKIN_MHMAT[BODY_RACE]
 EYES_MHCLO = os.path.join(ROOT, "assets_src", "eyes", "high-poly", "high-poly.mhclo")
 EYEBROWS_MHCLO = os.path.join(ROOT, "assets_src", "eyebrows", "eyebrow002", "eyebrow002.mhclo")
 EYELASHES_MHCLO = os.path.join(ROOT, "assets_src", "eyelashes", "eyelashes01", "eyelashes01.mhclo")
@@ -366,7 +387,7 @@ def export_glb(basemesh, armature_obj, extra_objects=()):
         bpy.context.view_layer.objects.active = armature_obj
     else:
         bpy.context.view_layer.objects.active = basemesh
-    out_path = os.path.join(OUT_DIR, "body.glb")
+    out_path = os.path.join(OUT_DIR, f"{BODY_OUT_NAME}.glb")
     bpy.ops.export_scene.gltf(
         filepath=out_path,
         use_selection=True,
@@ -387,7 +408,7 @@ def main():
     macro_details["age"] = 0.5  # young adult
     macro_details["muscle"] = 0.5  # average
     macro_details["weight"] = 0.5  # average
-    macro_details["race"] = {"african": 0.0, "asian": 0.0, "caucasian": 1.0}
+    macro_details["race"] = RACE_MACRO_DETAILS[BODY_RACE]
 
     basemesh = HumanService.create_human(macro_detail_dict=macro_details)
     print("Created basemesh:", basemesh.name, "verts:", len(basemesh.data.vertices))

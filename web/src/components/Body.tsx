@@ -4,10 +4,14 @@ import * as THREE from 'three';
 import { applyBodyMorphs, type BodyMorphState } from '../avatar/bodyMorphs';
 import { useAvatarContext } from '../avatar/AvatarContext';
 import { primeIdleAnimationRestPose } from '../avatar/idleAnimation';
-import { assetUrl } from '../lib/assetUrl';
 
-export function Body({ morphs }: { morphs: BodyMorphState }) {
-  const { scene } = useGLTF(assetUrl('/models/body.glb?v=14'));
+// url is which skin/ethnicity variant to load (see bodyUrl() in
+// AvatarToolPage.tsx) - no module-level preload here anymore, since there
+// are now three interchangeable body.glb files and eagerly fetching all of
+// them would undo the whole point of only downloading the one the
+// specialist actually picked.
+export function Body({ morphs, url }: { morphs: BodyMorphState; url: string }) {
+  const { scene } = useGLTF(url);
   const { setHeadBone, registerPosableScene, unregisterPosableScene } = useAvatarContext();
   const rootRef = useRef<THREE.Group>(null);
 
@@ -44,5 +48,3 @@ export function Body({ morphs }: { morphs: BodyMorphState }) {
   // anything about the pose.
   return <primitive ref={rootRef} object={scene} dispose={null} />;
 }
-
-useGLTF.preload(assetUrl('/models/body.glb?v=14'));

@@ -81,6 +81,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'body.legs': 'Бёдра/ноги',
     'body.face': 'Лицо',
 
+    'skin.heading': 'Внешность',
+    'skin.caucasian': 'Европеоидная',
+    'skin.asian': 'Азиатская',
+    'skin.african': 'Африканская',
+
     'hair.heading': 'Причёска',
     'hair.none': 'Нет',
     'hair.long': 'Длинные',
@@ -251,6 +256,11 @@ export const translations: Record<Lang, Record<string, string>> = {
     'body.arms': 'Arms',
     'body.legs': 'Hips/legs',
     'body.face': 'Face',
+
+    'skin.heading': 'Appearance',
+    'skin.caucasian': 'Caucasian',
+    'skin.asian': 'Asian',
+    'skin.african': 'African',
 
     'hair.heading': 'Hair',
     'hair.none': 'None',

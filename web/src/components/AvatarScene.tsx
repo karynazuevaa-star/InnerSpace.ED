@@ -96,6 +96,7 @@ function KeyboardOrbitControl({
 
 export interface AvatarConfig {
   morphs: BodyMorphState;
+  bodyUrl: string;
   hairStyle: HairStyle | '';
   hairColor: string;
   topUrl: string;
@@ -314,7 +315,7 @@ export function AvatarScene({ config }: { config: AvatarConfig }) {
                   reparent step (still used below for hair, which does need
                   to stay swappable) was the actual source of the eyes
                   never quite sitting flush in the socket. */}
-              <Body morphs={config.morphs} />
+              <Body morphs={config.morphs} url={config.bodyUrl} />
               <OutfitPiece url={config.topUrl} morphs={config.morphs} />
               <OutfitPiece url={config.bottomUrl} morphs={config.morphs} />
             </Suspense>

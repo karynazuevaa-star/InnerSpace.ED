@@ -36,6 +36,20 @@ MPFB_TARGETS_DIR = os.environ.get(
     os.path.join(_EXTENSIONS_ROOT, "blender_org", "mpfb", "data", "targets"),
 )
 
+# Must match 02_generate_body.py's own BODY_RACE - a garment fit to the
+# caucasian basemesh's proportions doesn't reach the skin on a body built
+# with a different race macrodetail (bust/torso shape shifts independently
+# of every curated target here), which showed up as bare, uncovered skin
+# at the neckline once actually seen on the asian/african body - not a
+# subtle gap, an actual nakedness bug. Every race needs its own bake.
+BODY_RACE = os.environ.get("BODY_RACE", "caucasian")
+RACE_MACRO_DETAILS = {
+    "caucasian": {"african": 0.0, "asian": 0.0, "caucasian": 1.0},
+    "asian": {"african": 0.0, "asian": 1.0, "caucasian": 0.0},
+    "african": {"african": 1.0, "asian": 0.0, "caucasian": 0.0},
+}
+RACE_SUFFIX = "" if BODY_RACE == "caucasian" else f"-{BODY_RACE}"
+
 # Must match pipeline/scripts/02_generate_body.py exactly - the frontend
 # drives body and outfit morph targets by the same names.
 CURATED_TARGETS = [
@@ -163,7 +177,7 @@ def create_basemesh_with_targets(HumanService, TargetService):
     macro_details["age"] = 0.5
     macro_details["muscle"] = 0.5
     macro_details["weight"] = 0.5
-    macro_details["race"] = {"african": 0.0, "asian": 0.0, "caucasian": 1.0}
+    macro_details["race"] = RACE_MACRO_DETAILS[BODY_RACE]
     basemesh = HumanService.create_human(macro_detail_dict=macro_details)
     HumanService.add_builtin_rig(basemesh, "default", import_weights=True)
     for rel_path, name in CURATED_TARGETS:
@@ -280,7 +294,7 @@ def bake_garment(HumanService, TargetService, ClothesService, Mhclo, out_name, m
         bpy.context.view_layer.objects.active = armature
     else:
         bpy.context.view_layer.objects.active = clothes
-    out_path = os.path.join(OUT_DIR, f"{out_name}.glb")
+    out_path = os.path.join(OUT_DIR, f"{out_name}{RACE_SUFFIX}.glb")
     bpy.ops.export_scene.gltf(
         filepath=out_path,
         use_selection=True,

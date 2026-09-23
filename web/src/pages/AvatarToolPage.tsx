@@ -3,15 +3,17 @@ import { useLocation } from 'react-router-dom';
 import { AvatarScene } from '../components/AvatarScene';
 import { BodySliders } from '../components/BodySliders';
 import { HairPicker } from '../components/HairPicker';
+import { SkinPicker } from '../components/SkinPicker';
 import { TechniqueGuide } from '../components/TechniqueGuide';
 import { GazeTracker } from '../gaze/GazeTracker';
 import { DEFAULT_BODY_MORPHS, type BodyMorphState } from '../avatar/bodyMorphs';
+import { bodyUrl, skinSuffix, type Skin } from '../avatar/skin';
 import { TECHNIQUES } from '../content/techniques';
 import { assetUrl } from '../lib/assetUrl';
 import type { HairStyle } from '../components/Hair';
 
-function outfitUrl(part: string): string {
-  return assetUrl(`/models/outfits/${part}.glb?v=8`);
+function outfitUrl(part: string, skin: Skin): string {
+  return assetUrl(`/models/outfits/${part}${skinSuffix(skin)}.glb?v=8`);
 }
 
 // The outfit is fixed - jeans and a tank top, no other choice and no "no
@@ -21,6 +23,7 @@ const BOTTOM = 'tightjeans';
 
 export function AvatarToolPage() {
   const [morphs, setMorphs] = useState<BodyMorphState>(DEFAULT_BODY_MORPHS);
+  const [skin, setSkin] = useState<Skin>('caucasian');
   const [hairStyle, setHairStyle] = useState<HairStyle | ''>('long');
   const [hairColor, setHairColor] = useState('#5a3222');
   const [gazeActive, setGazeActive] = useState(false);
@@ -50,10 +53,11 @@ export function AvatarToolPage() {
         <AvatarScene
           config={{
             morphs,
+            bodyUrl: bodyUrl(skin),
             hairStyle,
             hairColor,
-            topUrl: outfitUrl(TOP),
-            bottomUrl: outfitUrl(BOTTOM),
+            topUrl: outfitUrl(TOP, skin),
+            bottomUrl: outfitUrl(BOTTOM, skin),
             gazeActive,
             heatmapVisible,
             heatmapResetKey,
@@ -68,6 +72,7 @@ export function AvatarToolPage() {
         {activeTechnique && <TechniqueGuide technique={activeTechnique} onClose={() => setActiveTechniqueId(null)} />}
       </div>
       <aside className="panel">
+        <SkinPicker skin={skin} onSkinChange={setSkin} />
         <BodySliders value={morphs} onChange={setMorphs} />
         <HairPicker style={hairStyle} color={hairColor} onStyleChange={setHairStyle} onColorChange={setHairColor} />
         <GazeTracker
