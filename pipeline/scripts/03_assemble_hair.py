@@ -254,7 +254,7 @@ def main():
     # different head shape/curvature there means the same fixed lift
     # doesn't track the scalp as closely. Smaller lift for those closes
     # the gap; still comfortably clear of z-fighting distance.
-    lift_off_scalp(hair_obj, distance=0.03 if BODY_RACE == "caucasian" else 0.012, max_forward=0.0035)
+    lift_off_scalp(hair_obj, distance=0.03 if BODY_RACE == "caucasian" else 0.02, max_forward=0.0035)
     weld_back_seam(hair_obj)
     add_seam_clearance(hair_obj)
     z_min, z_max = z_bounds(hair_obj)
