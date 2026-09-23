@@ -246,7 +246,15 @@ def main():
     print("Basemesh for fitting:", basemesh.name)
 
     hair_obj = fit_hair(HumanService, basemesh)
-    lift_off_scalp(hair_obj, distance=0.03, max_forward=0.0035)
+    # 0.03 was tuned specifically against the caucasian head (see this
+    # function's own docstring - a real measured normal.y split between
+    # hairline and crown on THAT head shape). Reported directly on the
+    # asian/african variants: a visible jagged gap right at the hairline,
+    # not the z-fighting flicker this distance exists to fix - a
+    # different head shape/curvature there means the same fixed lift
+    # doesn't track the scalp as closely. Smaller lift for those closes
+    # the gap; still comfortably clear of z-fighting distance.
+    lift_off_scalp(hair_obj, distance=0.03 if BODY_RACE == "caucasian" else 0.012, max_forward=0.0035)
     weld_back_seam(hair_obj)
     add_seam_clearance(hair_obj)
     z_min, z_max = z_bounds(hair_obj)
