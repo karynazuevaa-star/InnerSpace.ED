@@ -74,7 +74,7 @@ def fit_hair(HumanService, basemesh):
     return hair_obj
 
 
-def lift_off_scalp(obj, distance=0.008, max_forward=0.003):
+def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=None, hairline_threshold=0.5):
     """
     The fitted hair shell sits almost exactly on the scalp surface, which
     z-fights with it in the renderer (worst from steep angles - straight
@@ -101,12 +101,28 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003):
     the crown's z-fighting fix (which relies on the Z/X component, barely
     touched by this clamp) while stopping hairline strands from poking
     past the face.
+
+    That clamp only limits the FORWARD component though - the X/Z part of
+    the offset still scales with `distance` even at the hairline, moving
+    those strands up/sideways too. Fine on the caucasian head this was
+    tuned against, but reported directly on asian/african: the fringe
+    read as sitting lower/denser across the forehead, more of the face
+    covered, once `distance` was raised from 0.012 to 0.02 to fix the
+    crown (see that commit) - the same bigger push was carrying the
+    fringe further from its fitted position too. `hairline_distance`
+    (defaults to `distance`, so callers that don't pass it keep the old
+    single-distance behavior) lets the two regions move independently:
+    full distance where z-fighting actually needs it, a much smaller one
+    at the hairline where any extra movement just relocates the fringe.
     """
+    if hairline_distance is None:
+        hairline_distance = distance
     bm = bmesh.new()
     bm.from_mesh(obj.data)
     bm.normal_update()
     for v in bm.verts:
-        offset = v.normal * distance
+        d = hairline_distance if v.normal.y > hairline_threshold else distance
+        offset = v.normal * d
         if offset.y > max_forward:
             offset.y = max_forward
         v.co += offset
@@ -248,13 +264,18 @@ def main():
     hair_obj = fit_hair(HumanService, basemesh)
     # 0.03 was tuned specifically against the caucasian head (see this
     # function's own docstring - a real measured normal.y split between
-    # hairline and crown on THAT head shape). Reported directly on the
-    # asian/african variants: a visible jagged gap right at the hairline,
-    # not the z-fighting flicker this distance exists to fix - a
-    # different head shape/curvature there means the same fixed lift
-    # doesn't track the scalp as closely. Smaller lift for those closes
-    # the gap; still comfortably clear of z-fighting distance.
-    lift_off_scalp(hair_obj, distance=0.03 if BODY_RACE == "caucasian" else 0.02, max_forward=0.0035)
+    # hairline and crown on THAT head shape). On asian/african: a single
+    # shared distance couldn't satisfy the crown (needs the full 0.03 to
+    # avoid z-fighting) and the hairline (0.03 opened a jagged gap; 0.02,
+    # the first fix, closed the gap but pushed the fringe low/dense enough
+    # across the forehead to read as covering more of the face) at the
+    # same time - two different regions wanting two different amounts of
+    # movement. hairline_distance now drives them independently: full
+    # distance at the crown, a small one at the hairline.
+    if BODY_RACE == "caucasian":
+        lift_off_scalp(hair_obj, distance=0.03, max_forward=0.0035)
+    else:
+        lift_off_scalp(hair_obj, distance=0.03, hairline_distance=0.008, max_forward=0.0035)
     weld_back_seam(hair_obj)
     add_seam_clearance(hair_obj)
     z_min, z_max = z_bounds(hair_obj)
