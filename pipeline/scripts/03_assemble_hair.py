@@ -135,10 +135,12 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
     `hairline_forward_extra` do that as a flat translation on top of the
     normal-offset, hairline verts only, so the crown's z-fighting fix above
     is untouched. Tuned by rendering the actual body+hair combo (not just
-    hair alone) at several values - 0.02 down / 0.006 forward brought the
-    hairline to sit just above the brows without visibly thinning the
-    crown's coverage; pushing further (0.022/0.01) barely changed the
-    render, so there's no benefit to going higher.
+    hair alone) at several values - 0.02 down / 0.006 forward looked right
+    in an isolated render but still read as "too high, too much bare
+    forehead" once actually seen in the app (reported directly, with a
+    sketch of the intended line); 0.04/0.012 - double - lands close to that
+    sketch without visibly thinning the crown's coverage. Pushing further
+    (0.05/0.016) barely changed the render past that point.
 
     First version applied hairline_down/hairline_forward_extra as a flat
     per-vertex ON/OFF step at hairline_threshold - fine for `distance` vs
@@ -333,10 +335,10 @@ def main():
         lift_off_scalp(hair_obj, distance=0.015, max_forward=0.006)
     elif BODY_RACE == "caucasian":
         lift_off_scalp(hair_obj, distance=0.03, max_forward=0.008,
-                        hairline_down=0.02, hairline_forward_extra=0.006)
+                        hairline_down=0.04, hairline_forward_extra=0.012)
     else:
         lift_off_scalp(hair_obj, distance=0.03, hairline_distance=0.008, max_forward=0.008,
-                        hairline_down=0.02, hairline_forward_extra=0.006)
+                        hairline_down=0.04, hairline_forward_extra=0.012)
     # weld_back_seam/add_seam_clearance close a gap specific to long01's
     # construction (separate L/R halves meeting down the back) - tuned
     # against that geometry, and afro01 doesn't share it (a single rounded
