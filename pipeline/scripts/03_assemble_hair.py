@@ -144,16 +144,20 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
 
     First version applied hairline_down/hairline_forward_extra as a flat
     per-vertex ON/OFF step at hairline_threshold - fine for `distance` vs
-    `hairline_distance` above (both scaled along each vertex's own normal,
-    which varies smoothly across the surface, so neighbors on either side
-    of the threshold still land close together), but a flat Z/Y
-    translation has no such continuity: verts just past the threshold
-    jumped by the full amount while their immediate neighbors just before
-    it got none, tearing a literal gap in the mesh at that seam - reported
-    directly as a bald wedge cutting into the hairline. Ramping the shift
-    0->1 over (hairline_threshold, blend_end) with a smoothstep instead of
-    a step fixes that: the extra shift fades in gradually so the seam
-    stays contiguous.
+    `hairline_distance` on its own back when hairline_down was small (both
+    scaled along each vertex's own normal, which varies smoothly across the
+    surface, so a modest jump in magnitude between neighbors on either side
+    of the threshold barely showed), but a flat Z/Y translation has no such
+    continuity: verts just past the threshold jumped by the full amount
+    while their immediate neighbors just before it got none, tearing a
+    literal gap in the mesh at that seam - reported directly as a bald
+    wedge cutting into the hairline. Ramping hairline_down/forward_extra in
+    with a smoothstep fixed that for caucasian - but doubling hairline_down
+    to 0.04 made the SAME distance/hairline_distance step (still a hard
+    on/off jump, not yet blended) visible too on asian/african, as a
+    lopsided notch - the extra vertical shift was now large enough to
+    expose the gap that jump had always technically left, just too small
+    to notice before. `t` below blends distance the same way, closing it.
     """
     if hairline_distance is None:
         hairline_distance = distance
@@ -163,14 +167,14 @@ def lift_off_scalp(obj, distance=0.008, max_forward=0.003, hairline_distance=Non
     bm.normal_update()
     for v in bm.verts:
         is_hairline = v.normal.y > hairline_threshold
-        d = hairline_distance if is_hairline else distance
+        t = max(0.0, min(1.0, (v.normal.y - hairline_threshold) / (blend_end - hairline_threshold))) if is_hairline else 0.0
+        t = t * t * (3 - 2 * t)
+        d = distance + (hairline_distance - distance) * t
         offset = v.normal * d
         if offset.y > max_forward:
             offset.y = max_forward
         v.co += offset
         if is_hairline:
-            t = max(0.0, min(1.0, (v.normal.y - hairline_threshold) / (blend_end - hairline_threshold)))
-            t = t * t * (3 - 2 * t)
             v.co.z -= hairline_down * t
             v.co.y += hairline_forward_extra * t
     bm.to_mesh(obj.data)

@@ -14,7 +14,7 @@ export type HairStyle = 'long' | 'medium' | 'short' | 'afro';
 // bald gap at the hairline once actually seen on those bodies, so `skin`
 // picks the matching pre-fit variant the same way Body/OutfitPiece do.
 export function Hair({ style, color, skin }: { style: HairStyle; color: string; skin: Skin }) {
-  const { scene } = useGLTF(assetUrl(`/models/hair/${style}${skinSuffix(skin)}.glb?v=26`));
+  const { scene } = useGLTF(assetUrl(`/models/hair/${style}${skinSuffix(skin)}.glb?v=27`));
   const { headBone } = useAvatarContext();
 
   useEffect(() => {
