@@ -17,12 +17,20 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # pipeline/
 OUT_DIR = os.path.join(ROOT, "out", "hair")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-HAIR_MHCLO = os.path.join(ROOT, "assets_src", "hair", "long01", "long01.mhclo")
+# HAIR_ASSET picks which raw MHCLO asset to fit - "long01" (the default)
+# derives long/medium/short length variants from one flowing hairstyle by
+# bisecting it at different heights (see make_variant); "afro01" is a single
+# rounded shape that doesn't have a meaningful "length" to cut, so it exports
+# as one variant named "afro" instead.
+HAIR_ASSET = os.environ.get("HAIR_ASSET", "long01")
+HAIR_MHCLO = os.path.join(ROOT, "assets_src", "hair", HAIR_ASSET, f"{HAIR_ASSET}.mhclo")
 
 VARIANTS = {
     "long": 1.0,
     "medium": 0.55,
     "short": 0.28,
+} if HAIR_ASSET == "long01" else {
+    "afro": 1.0,
 }
 
 # Must match 02_generate_body.py's own BODY_RACE - this hairstyle is fit
@@ -315,14 +323,28 @@ def main():
     # bare, too-tall forehead underneath - reported on the caucasian variant
     # specifically, so this isn't a race-specific fit issue, it's the base
     # MHCLO fit itself. Applies uniformly on top of whichever branch below.
-    if BODY_RACE == "caucasian":
+    if HAIR_ASSET != "long01":
+        # afro01 is a thick, mostly-rigid shell (not thin strand cards like
+        # long01), fits close to the brow line on its own, and its visible
+        # "cap band" across the forehead is baked into the source texture -
+        # present even on the raw, unlifted fit (checked directly). None of
+        # long01's hairline-specific tuning applies here; a plain, modest
+        # lift is enough to clear z-fighting on the crown.
+        lift_off_scalp(hair_obj, distance=0.015, max_forward=0.006)
+    elif BODY_RACE == "caucasian":
         lift_off_scalp(hair_obj, distance=0.03, max_forward=0.008,
                         hairline_down=0.02, hairline_forward_extra=0.006)
     else:
         lift_off_scalp(hair_obj, distance=0.03, hairline_distance=0.008, max_forward=0.008,
                         hairline_down=0.02, hairline_forward_extra=0.006)
-    weld_back_seam(hair_obj)
-    add_seam_clearance(hair_obj)
+    # weld_back_seam/add_seam_clearance close a gap specific to long01's
+    # construction (separate L/R halves meeting down the back) - tuned
+    # against that geometry, and afro01 doesn't share it (a single rounded
+    # shell, no center-back seam), so skip for other assets rather than
+    # running region bounds tuned for a different mesh against this one.
+    if HAIR_ASSET == "long01":
+        weld_back_seam(hair_obj)
+        add_seam_clearance(hair_obj)
     z_min, z_max = z_bounds(hair_obj)
     print(f"Fitted hair Z bounds: {z_min:.3f} .. {z_max:.3f}")
 

@@ -7,6 +7,7 @@ const STYLES: { value: HairStyle | ''; labelKey: string }[] = [
   { value: 'long', labelKey: 'hair.long' },
   { value: 'medium', labelKey: 'hair.medium' },
   { value: 'short', labelKey: 'hair.short' },
+  { value: 'afro', labelKey: 'hair.afro' },
 ];
 
 export function HairPicker({

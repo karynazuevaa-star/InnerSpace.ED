@@ -91,6 +91,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'hair.long': 'Длинные',
     'hair.medium': 'Средние',
     'hair.short': 'Короткие',
+    'hair.afro': 'Афро',
 
     'gaze.heading': 'Айтрекинг (прототип)',
     'gaze.infoTooltip': 'Отслеживает взгляд клиента через веб-камеру, пока он смотрит на аватар, и строит тепловую карту того, какие области притягивали внимание дольше всего.',
@@ -267,6 +268,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'hair.long': 'Long',
     'hair.medium': 'Medium',
     'hair.short': 'Short',
+    'hair.afro': 'Afro',
 
     'gaze.heading': 'Eye tracking (prototype)',
     'gaze.infoTooltip': "Tracks where the client looks at the avatar through the webcam, and builds a heatmap of which areas held their attention longest.",
