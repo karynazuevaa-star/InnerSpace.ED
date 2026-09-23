@@ -446,7 +446,11 @@
 .info-badge__tooltip {
   position: absolute;
   right: 0;
-  top: calc(100% + 8px);
+  /* Opens upward, not down - a heading's tooltip sits right above the
+     controls it's explaining (sliders, buttons...), and opening downward
+     covered them while the tooltip was open, reported directly with a
+     screenshot of the BODY sliders getting hidden underneath it. */
+  bottom: calc(100% + 8px);
   z-index: 10;
   width: 180px;
   padding: 10px 12px;
@@ -461,7 +465,7 @@
   color: var(--text);
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-4px);
+  transform: translateY(4px);
   transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
   pointer-events: none;
 }
