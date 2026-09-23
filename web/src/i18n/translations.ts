@@ -30,6 +30,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'tour.finish': 'Завершить обзор',
 
     'techniques.folderTechniques': 'Техники',
+    'techniques.intro': 'Описание техник, которые можно провести для работы с аватаром. Внизу каждой вы можете нажать на кнопку «Попробовать» и перенесётесь в комнату с аватаром и шагами проведения.',
     'techniques.folderScreening': 'Скрининг',
     'techniques.folderPsychoeducation': 'Психообразование',
     'techniques.psychoTabBrain': 'Мозг',
@@ -208,6 +209,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'tour.finish': 'Finish the tour',
 
     'techniques.folderTechniques': 'Techniques',
+    'techniques.intro': "Descriptions of techniques you can run with the avatar. At the bottom of each, hit “Try it” to jump into a room with the avatar and the steps to run it.",
     'techniques.folderScreening': 'Screening',
     'techniques.folderPsychoeducation': 'Psychoeducation',
     'techniques.psychoTabBrain': 'Brain',

@@ -51,6 +51,8 @@ export function MaterialsPage() {
         </button>
       </div>
 
+      {folder === 'techniques' && <p className="techniques-lang-note">{t('techniques.intro')}</p>}
+
       {folder === 'psychoeducation' ? (
         <>
           <div className="techniques-folder-row psychoeducation-tab-row">
