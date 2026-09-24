@@ -1887,11 +1887,71 @@ input[type='range']::-moz-range-thumb {
   z-index: 5;
 }
 
+.table-menu__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .table-menu__title {
   margin: 0 0 4px;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+/* Collapses the panel down to itself, requested directly - sitting back
+   down to get it out of the way was the only option before this existed.
+   Same 22x22 transparent-button treatment as .technique-guide__close. */
+.table-menu__close {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.table-menu__close:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* What .table-menu collapses into - same pill look as .guide-toggle
+   (bottom-left instead of top-right, matching where the full panel it
+   reopens sits). */
+.table-menu-toggle {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(10, 10, 14, 0.4);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(139, 108, 255, 0.55);
+  border-radius: 999px;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.table-menu-toggle:hover {
+  background: rgba(10, 10, 14, 0.6);
+  border-color: rgba(139, 108, 255, 0.8);
 }
 
 .table-menu__hint {

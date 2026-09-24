@@ -380,6 +380,16 @@ export function CafeScene() {
   // list of what's orderable).
   const [tableOrders, setTableOrders] = useState<MenuFoodId[][]>([[], []]);
   const seatedTable = seatedSeat !== null ? seatedSeat >> 1 : null;
+  // Whether the table-menu panel is collapsed down to its own small pill -
+  // requested directly (a close/"X" that leaves a "Меню" tab behind rather
+  // than dismissing the menu outright, since standing up and sitting back
+  // down was the only way to get it out of the way before). Reset to open
+  // on every new seat, not just the first one, so sitting at the OTHER
+  // empty table doesn't silently inherit "collapsed" from the last table.
+  const [menuCollapsed, setMenuCollapsed] = useState(false);
+  useEffect(() => {
+    if (seatedTable !== null) setMenuCollapsed(false);
+  }, [seatedTable]);
 
   // Drag-to-reposition for ordered dishes, requested directly: a dish
   // starts at TableOrder's own fixed default slot (unchanged), but once
@@ -778,9 +788,25 @@ export function CafeScene() {
           slot around that table. Stays open while sitting (not dismissed
           on pick) so changing the order doesn't need standing up and
           sitting back down. */}
-      {seatedTable !== null && (
+      {seatedTable !== null && menuCollapsed && (
+        <button type="button" className="table-menu-toggle" onClick={() => setMenuCollapsed(false)}>
+          {t('table.menu.title')}
+        </button>
+      )}
+      {seatedTable !== null && !menuCollapsed && (
         <div className="table-menu">
-          <h2 className="table-menu__title">{t('table.menu.title')}</h2>
+          <div className="table-menu__header">
+            <h2 className="table-menu__title">{t('table.menu.title')}</h2>
+            <button
+              type="button"
+              className="table-menu__close"
+              aria-label={t('table.menu.close')}
+              title={t('table.menu.close')}
+              onClick={() => setMenuCollapsed(true)}
+            >
+              &times;
+            </button>
+          </div>
           <p className="table-menu__hint">{t('table.menu.hint')}</p>
           <ul className="table-menu__list">
             {MENU_FOOD_ITEMS.map((item) => {
