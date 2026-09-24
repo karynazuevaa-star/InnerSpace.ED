@@ -401,11 +401,15 @@
 }
 
 /* Wraps a .control-group's own h3 together with an InfoTooltip badge
-   (GazeTracker.tsx's "Eye tracking" heading, so far) - the row carries the
-   heading's usual bottom margin instead, since the h3 itself needs
-   margin: 0 to sit level with the badge next to it. */
+   (GazeTracker.tsx's "Eye tracking" heading, BodySliders.tsx's "Body"
+   heading) - the row carries the heading's usual bottom margin instead,
+   since the h3 itself needs margin: 0 to sit level with the badge next to
+   it. flex-wrap lets the badge's expanded text (flex-basis: 100%, see
+   .info-badge-text below) drop onto its own full-width line under the
+   heading instead of overflowing the row. */
 .control-group-heading-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-bottom: 14px;
@@ -415,12 +419,25 @@
   margin: 0;
 }
 
-/* InfoTooltip.tsx - a small "?" badge with a popover shown on hover/focus,
-   generic enough to sit next to any heading that could use a one-line
-   "what is this" explanation. cursor: help signals it's informational, not
-   clickable. */
+/* InfoTooltip.tsx - a small "?" badge that expands a one-line "what is
+   this" note in place on click, generic enough to sit next to any heading
+   that could use one. display: contents drops this wrapper out of layout
+   so its children (the button, and the text once expanded) act as direct
+   flex items of .control-group-heading-row - that's what lets the text
+   take flex-basis: 100% and wrap onto its own line below the heading.
+   (Previously an absolutely-positioned hover popover - opening it below
+   the heading covered the very controls it explained, e.g. the BODY
+   sliders; opening it above instead just covered whatever sits above THAT
+   heading, e.g. the Appearance picker. Reported directly both times, with
+   screenshots. A popover has no direction that's safe in a column this
+   narrow, so this expands in normal document flow instead - pushing
+   later content down rather than floating over any of it, which can't
+   overlap anything regardless of viewport size or where the heading sits.) */
+.info-badge-wrap {
+  display: contents;
+}
+
 .info-badge {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -428,11 +445,13 @@
   height: 15px;
   border-radius: 50%;
   border: 1px solid var(--text-faint);
+  background: none;
   color: var(--text-faint);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
-  cursor: help;
+  padding: 0;
+  cursor: pointer;
   flex-shrink: 0;
 }
 
@@ -443,38 +462,18 @@
   outline: none;
 }
 
-.info-badge__tooltip {
-  position: absolute;
-  right: 0;
-  /* Opens upward, not down - a heading's tooltip sits right above the
-     controls it's explaining (sliders, buttons...), and opening downward
-     covered them while the tooltip was open, reported directly with a
-     screenshot of the BODY sliders getting hidden underneath it. */
-  bottom: calc(100% + 8px);
-  z-index: 10;
-  width: 180px;
-  padding: 10px 12px;
-  background: rgba(10, 10, 14, 0.96);
+.info-badge-text {
+  flex: 1 0 100%;
+  padding: 8px 10px;
+  background: rgba(10, 10, 14, 0.6);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 12px;
   font-weight: 400;
   text-transform: none;
   letter-spacing: normal;
   line-height: 1.5;
-  color: var(--text);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(4px);
-  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
-  pointer-events: none;
-}
-
-.info-badge:hover .info-badge__tooltip,
-.info-badge:focus-visible .info-badge__tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
+  color: var(--text-dim);
 }
 
 /* TechniqueGuide.tsx - the avatar page's step-by-step guide for whichever
