@@ -953,6 +953,42 @@ input[type='range']::-moz-range-thumb {
   color: var(--text);
 }
 
+.technique-modal-with-media {
+  max-width: 1080px;
+}
+
+.technique-modal-with-media .technique-modal-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.technique-modal-media {
+  position: sticky;
+  top: 0;
+}
+
+.technique-modal-media video {
+  display: block;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: #000;
+  pointer-events: none;
+}
+
+@media (max-width: 820px) {
+  .technique-modal-with-media .technique-modal-body {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .technique-modal-media {
+    position: static;
+    order: -1;
+  }
+}
+
 .technique-modal h2 {
   margin: 0 0 24px;
   font-size: 22px;
@@ -2563,6 +2599,74 @@ input[type='range']::-moz-range-thumb {
 
 .about-contact .landing-cta {
   text-decoration: none;
+}
+
+/* ---- Euler circles ("What the platform is built on") ---- */
+.about-venn-svg {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  margin: 4px auto 0;
+  overflow: visible;
+}
+
+.about-venn-circle {
+  fill-opacity: 0.14;
+  stroke-opacity: 0.55;
+  stroke-width: 1.2;
+  mix-blend-mode: screen;
+  transition: fill-opacity 0.25s ease, stroke-opacity 0.25s ease;
+}
+
+.about-venn-circle-active {
+  fill-opacity: 0.3;
+  stroke-opacity: 1;
+}
+
+.about-venn-hit {
+  cursor: pointer;
+  outline: none;
+}
+
+.about-venn-label {
+  fill: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  text-anchor: middle;
+  transition: fill 0.2s ease;
+}
+
+.about-venn-label-active,
+.about-venn-hit:focus-visible .about-venn-label {
+  fill: var(--text);
+}
+
+.about-venn-center {
+  fill: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  text-anchor: middle;
+  letter-spacing: -0.01em;
+  pointer-events: none;
+}
+
+.about-venn-detail {
+  min-height: 72px;
+  margin-top: 14px;
+  padding-left: 16px;
+  border-left: 2px solid rgba(139, 108, 255, 0.5);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.about-venn-detail strong {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.about-venn-detail span {
+  color: var(--text-dim);
 }
 
 /* ---- garden ---- */

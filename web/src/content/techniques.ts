@@ -753,6 +753,9 @@ export interface InstrumentContent {
 export interface Instrument {
   id: string;
   showOnTestsPage: boolean;
+  // Optional demo clip (muted, looping) shown beside the text in the
+  // instrument's modal. Served from /public, same for both languages.
+  video?: string;
   ru: InstrumentContent;
   en: InstrumentContent;
 }
@@ -761,6 +764,7 @@ export const INSTRUMENTS: Instrument[] = [
   {
     id: 'eye-tracking',
     showOnTestsPage: false,
+    video: '/materials/eye-tracking-demo.mp4?v=3',
     ru: {
       title: 'Айтрекинг',
       summary: 'Веб-камера отслеживает взгляд для карты визуального внимания на аватаре.',

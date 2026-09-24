@@ -6,7 +6,71 @@ import type { Folder } from './MaterialsPage';
 
 const CONTACT_EMAIL = 'info.innerspace.ed@gmail.com';
 
-const BASIS_ITEMS = ['cbt', 'neuro', 'bodyImage', 'cyber'] as const;
+// "What the platform is built on" as Euler circles: four overlapping
+// fields with InnerSpace.ED where they all meet. Each circle sits in one
+// quadrant and keeps its label in the part no other circle covers.
+const BASIS_ITEMS = [
+  { key: 'cbt', cx: 150, cy: 110, lx: 92, ly: 72, color: '#8b6cff' },
+  { key: 'neuro', cx: 250, cy: 110, lx: 308, ly: 72, color: '#5b9cff' },
+  { key: 'bodyImage', cx: 150, cy: 190, lx: 92, ly: 232, color: '#5fd3c4' },
+  { key: 'cyber', cx: 250, cy: 190, lx: 308, ly: 232, color: '#f0a476' },
+] as const;
+
+function BasisVenn() {
+  const { t } = useLanguage();
+  const [active, setActive] = useState(0);
+  const item = BASIS_ITEMS[active];
+
+  return (
+    <div className="about-venn">
+      <svg viewBox="0 0 400 300" className="about-venn-svg" role="group" aria-label={t('about.basisHeading')}>
+        {BASIS_ITEMS.map((c, i) => (
+          <circle
+            key={c.key}
+            cx={c.cx}
+            cy={c.cy}
+            r={100}
+            fill={c.color}
+            stroke={c.color}
+            className={`about-venn-circle${i === active ? ' about-venn-circle-active' : ''}`}
+          />
+        ))}
+        {BASIS_ITEMS.map((c, i) => (
+          <g
+            key={c.key}
+            className="about-venn-hit"
+            role="button"
+            tabIndex={0}
+            aria-pressed={i === active}
+            aria-label={t(`about.basis.${c.key}`)}
+            onMouseEnter={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            onClick={() => setActive(i)}
+          >
+            {/* Invisible hit area over the circle's own, non-shared corner. */}
+            <circle cx={c.lx} cy={c.ly} r={52} fill="transparent" />
+            <text x={c.lx} y={c.ly} className={`about-venn-label${i === active ? ' about-venn-label-active' : ''}`}>
+              {t(`about.basis.${c.key}Short`)
+                .split('\n')
+                .map((line, j, lines) => (
+                  <tspan key={j} x={c.lx} dy={j === 0 ? `${-(lines.length - 1) * 0.6 + 0.35}em` : '1.2em'}>
+                    {line}
+                  </tspan>
+                ))}
+            </text>
+          </g>
+        ))}
+        <text x={200} y={150} className="about-venn-center" dy="0.35em">
+          InnerSpace.ED
+        </text>
+      </svg>
+      <div className="about-venn-detail" aria-live="polite">
+        <strong style={{ color: item.color }}>{t(`about.basis.${item.key}`)}</strong>
+        <span>{t(`about.basis.${item.key}Text`)}</span>
+      </div>
+    </div>
+  );
+}
 
 const FOUNDER_DEGREES = ['bsc', 'mscCyber', 'mscAi', 'phd', 'clinical'] as const;
 // Degrees still being completed get a small star with an "in progress" hint.
@@ -84,14 +148,7 @@ export function AboutPage() {
     </>,
     <>
       <h2>{t('about.basisHeading')}</h2>
-      <ul className="about-usage">
-        {BASIS_ITEMS.map((key) => (
-          <li key={key}>
-            <strong>{t(`about.basis.${key}`)}</strong>
-            <span>{t(`about.basis.${key}Text`)}</span>
-          </li>
-        ))}
-      </ul>
+      <BasisVenn />
     </>,
     <>
       <h2>{t('about.noteHeading')}</h2>

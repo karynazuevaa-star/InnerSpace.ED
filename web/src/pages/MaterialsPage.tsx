@@ -166,23 +166,37 @@ export function MaterialsPage() {
 
       {open && open.kind === 'instrument' && (
         <div className="technique-modal-overlay" onClick={() => setOpen(null)}>
-          <div className="technique-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`technique-modal${open.item.video ? ' technique-modal-with-media' : ''}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button type="button" className="technique-modal-close" onClick={() => setOpen(null)}>
               {t('techniques.close')}
             </button>
             <h2>{open.item[lang].title}</h2>
-            <p className="technique-modal-description">{open.item[lang].description}</p>
+            <div className="technique-modal-body">
+              <div className="technique-modal-text">
+                <p className="technique-modal-description">{open.item[lang].description}</p>
 
-            {open.item[lang].useCases.length > 0 && (
-              <>
-                <h4>{t('techniques.useCases')}</h4>
-                <ul>
-                  {open.item[lang].useCases.map((useCase, i) => (
-                    <li key={i}>{useCase}</li>
-                  ))}
-                </ul>
-              </>
-            )}
+                {open.item[lang].useCases.length > 0 && (
+                  <>
+                    <h4>{t('techniques.useCases')}</h4>
+                    <ul>
+                      {open.item[lang].useCases.map((useCase, i) => (
+                        <li key={i}>{useCase}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+              {open.item.video && (
+                <div className="technique-modal-media">
+                  {/* Plays like a GIF: silent, endless, no controls. A real GIF of
+                      this clip would be several times heavier and banded. */}
+                  <video src={open.item.video} autoPlay muted loop playsInline disablePictureInPicture aria-hidden="true" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
