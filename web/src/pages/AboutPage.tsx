@@ -6,14 +6,14 @@ import type { Folder } from './MaterialsPage';
 
 const CONTACT_EMAIL = 'info.innerspace.ed@gmail.com';
 
-// Each way of using the platform links to where it lives. Psychoeducation
-// and screening are folders on Materials, opened via route state; eye
-// tracking is part of the avatar tool.
 const BASIS_ITEMS = ['cbt', 'neuro', 'bodyImage', 'cyber'] as const;
 
 const FOUNDER_DEGREES = ['bsc', 'mscCyber', 'mscAi', 'phd', 'clinical'] as const;
 const FOUNDER_TAGS = ['tum', 'experience', 'lecturer', 'lab'] as const;
 
+// Each way of using the platform links to where it lives. Psychoeducation
+// and screening are folders on Materials, opened via route state; eye
+// tracking is part of the avatar tool.
 const USAGE_ITEMS: { key: string; to: string; folder?: Folder }[] = [
   { key: 'psycho', to: '/materials', folder: 'psychoeducation' },
   { key: 'avatar', to: '/avatar' },

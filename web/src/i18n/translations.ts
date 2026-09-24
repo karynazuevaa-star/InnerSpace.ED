@@ -68,7 +68,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'landing.eyebrow': 'Часть экосистемы InnerSpace',
     'landing.lead':
       'Инструмент, созданный клиническими психологами, для терапевтической работы с образом тела при расстройствах пищевого поведения.',
-    'landing.cta': 'Исследовать сайт',
+    'landing.cta': 'Исследовать платформу',
     'landing.disclaimer':
       'InnerSpace.ED является немедицинским вспомогательным инструментом для квалифицированных специалистов. Он не ставит диагнозы, не назначает лечение и не заменяет профессиональное клиническое решение.',
     'landing.modelCredit':
@@ -78,6 +78,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'tour.roomsCaption': 'Место для градуированной экспозиции: кафе, бассейн, спортзал.',
     'tour.materialsCaption': 'Упражнения, скрининги и психообразование.',
     'tour.testsCaption': 'Тесты на тревогу и симптомы РПП.',
+    'tour.aboutCaption': 'Кто мы, на чём основана платформа и как с нами связаться.',
     'tour.next': 'Далее',
     'tour.finish': 'Завершить обзор',
 
@@ -302,7 +303,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'landing.eyebrow': 'Part of the InnerSpace ecosystem',
     'landing.lead':
       'A tool created by clinical psychologists for therapeutic work on body image in eating disorders.',
-    'landing.cta': 'Explore the site',
+    'landing.cta': 'Explore the platform',
     'landing.disclaimer':
       'InnerSpace.ED is a non-medical support tool for qualified professionals. It does not diagnose, prescribe treatment, or replace professional clinical judgement.',
     'landing.modelCredit':
@@ -312,6 +313,7 @@ export const translations: Record<Lang, Record<string, string>> = {
     'tour.roomsCaption': 'A place for graduated exposure: a cafe, a pool, a gym.',
     'tour.materialsCaption': 'Exercises, screenings and psychoeducation.',
     'tour.testsCaption': 'Tests for anxiety and ED symptoms.',
+    'tour.aboutCaption': 'Who we are, what the platform is built on and how to reach us.',
     'tour.next': 'Next',
     'tour.finish': 'Finish the tour',
 

@@ -10,8 +10,9 @@ const NAV_CAPTION_KEYS = [
   'tour.avatarCaption',
   'tour.roomsCaption',
   'tour.materialsCaption',
+  'tour.aboutCaption',
 ] as const;
-const LAST_STEP: TourStep = 2;
+const LAST_STEP: TourStep = 3;
 
 export function TourOverlay() {
   const { step, next, finish } = useTour();
@@ -46,7 +47,7 @@ export function TourOverlay() {
   // since without this the tooltip just kept pointing at whatever nav item
   // it was on, now stranded on a page the tour never expected. The tour
   // itself never navigates - start()/next() only move the tooltip, LandingPage's
-  // "Explore the site" button stays on "/" - so the only page it should
+  // "Explore the platform" button stays on "/" - so the only page it should
   // ever consider "on track" is the one it began on; any other pathname
   // showing up while a step is active is the visitor navigating on their
   // own, not the tour doing it.
