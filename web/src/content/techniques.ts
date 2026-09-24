@@ -747,6 +747,7 @@ export interface InstrumentContent {
   title: string;
   summary: string;
   description: string;
+  useCases: string[];
 }
 
 export interface Instrument {
@@ -763,20 +764,28 @@ export const INSTRUMENTS: Instrument[] = [
     ru: {
       title: 'Айтрекинг',
       summary: 'Веб-камера отслеживает взгляд для карты визуального внимания на аватаре.',
-      description: `Айтрекинг в InnerSpace.ED работает через обычную веб-камеру, а не через специализированный инфракрасный айтрекер. После короткой калибровки (клиент кликает по нескольким точкам на экране) браузер локально оценивает, куда смотрит клиент, пока тот рассматривает аватар, и строит по этим данным тепловую карту зрительного внимания.
+      description: `Айтрекинг в InnerSpace.ED работает через обычную веб-камеру, а не специализированный инфракрасный айтрекер. После короткой калибровки браузер локально оценивает, куда смотрит клиент, пока тот рассматривает аватар, и строит по этим данным тепловую карту зрительного внимания. Всё вычисляется локально — видео с камеры никуда не передаётся и не сохраняется. Точность здесь заметно ниже, чем у специализированных айтрекеров, и зависит от освещения, положения головы и качества калибровки.
 
-Всё вычисляется локально в браузере. Видео с камеры никуда не передаётся и не сохраняется.
-
-Точность здесь заметно ниже, чем у специализированных айтрекеров, и зависит от освещения, положения головы, качества веб-камеры и того, насколько точно прошла калибровка. Частота сбора данных тоже ниже. Поэтому результаты стоит воспринимать как ориентировочные и качественные, как материал для совместного обсуждения с клиентом («на что вы смотрели дольше»), а не как точный количественный клинический показатель. Айтрекинг лучше сочетать с самоотчётом клиента, например с BASS, а не заменять его им.`,
+Результаты стоит воспринимать как ориентировочные и качественные, как материал для совместного обсуждения с клиентом, а не как точный количественный клинический показатель.`,
+      useCases: [
+        'Сравнить, куда клиент ожидал смотреть дольше всего, с тем, куда он смотрел на самом деле.',
+        'Сопоставить с результатами опросников (например, MBSRQ или BASS) — увидеть расхождения между тем, что клиент называет значимым, и тем, куда возвращается взгляд.',
+        'Повторить через время, чтобы отследить динамику — меняется ли паттерн внимания в ходе терапии.',
+        'Использовать как материал для совместного обсуждения с клиентом, а не заменять им самоотчёт.',
+      ],
     },
     en: {
       title: 'Eye tracking',
       summary: 'Webcam-based gaze tracking for a visual-attention map on the avatar.',
-      description: `Eye tracking in InnerSpace.ED runs on a plain webcam, not a dedicated infrared eye tracker. After a short calibration (the client clicks a few points on screen), the browser estimates locally where the client is looking while they view the avatar, and builds a heatmap of visual attention from that.
+      description: `Eye tracking in InnerSpace.ED runs on a plain webcam, not a dedicated infrared eye tracker. After a short calibration, the browser estimates locally where the client is looking while they view the avatar, and builds a heatmap of visual attention from that. Everything is computed locally - the camera video is never sent anywhere or saved. Accuracy here is noticeably lower than with a dedicated eye tracker, and it depends on lighting, head position, and calibration quality.
 
-Everything is computed locally in the browser. The camera video is never sent anywhere or saved.
-
-Accuracy here is noticeably lower than with a dedicated eye tracker, and it depends on lighting, head position, webcam quality, and how well the calibration went. The sampling rate is lower too. Because of this, treat the results as approximate and qualitative, material for discussing with the client ("what did you look at longest") rather than a precise quantitative clinical measure. Eye tracking works best alongside the client's own self-report, for example BASS, not as a replacement for it.`,
+Treat the results as approximate and qualitative, material for discussing with the client, rather than a precise quantitative clinical measure.`,
+      useCases: [
+        'Compare where the client expected to look longest with where they actually looked.',
+        'Cross-check against questionnaire results (e.g. MBSRQ or BASS) - spot gaps between what the client calls significant and where their gaze keeps returning.',
+        'Repeat over time to track dynamics - whether the attention pattern shifts over the course of therapy.',
+        "Use as material for discussion with the client, not as a replacement for self-report.",
+      ],
     },
   },
 ];

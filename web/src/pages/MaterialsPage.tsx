@@ -52,6 +52,7 @@ export function MaterialsPage() {
       </div>
 
       {folder === 'techniques' && <p className="techniques-lang-note">{t('techniques.intro')}</p>}
+      {folder === 'screening' && <p className="techniques-lang-note">{t('techniques.introScreening')}</p>}
 
       {folder === 'psychoeducation' ? (
         <>
@@ -167,6 +168,17 @@ export function MaterialsPage() {
             </button>
             <h2>{open.item[lang].title}</h2>
             <p className="technique-modal-description">{open.item[lang].description}</p>
+
+            {open.item[lang].useCases.length > 0 && (
+              <>
+                <h4>{t('techniques.useCases')}</h4>
+                <ul>
+                  {open.item[lang].useCases.map((useCase, i) => (
+                    <li key={i}>{useCase}</li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         </div>
       )}
