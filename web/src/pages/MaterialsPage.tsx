@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../i18n/LanguageContext';
 import { TECHNIQUES, SCREENING, PSYCHOEDUCATION, INSTRUMENTS, type Technique, type Instrument } from '../content/techniques';
 import { BrainViewer } from '../components/BrainViewer';
 import { EDModelViewer } from '../components/EDModelViewer';
 
-type Folder = 'techniques' | 'screening' | 'psychoeducation';
+export type Folder = 'techniques' | 'screening' | 'psychoeducation';
 type PsychoTab = 'brain' | 'edmodel';
 type OpenItem = { kind: 'technique'; item: Technique } | { kind: 'instrument'; item: Instrument };
 
@@ -18,7 +18,11 @@ const LISTS: Record<Folder, Technique[]> = {
 export function MaterialsPage() {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
-  const [folder, setFolder] = useState<Folder>('techniques');
+  // The About page links straight to a folder by passing it in route state.
+  const location = useLocation();
+  const [folder, setFolder] = useState<Folder>(
+    () => (location.state as { folder?: Folder } | null)?.folder ?? 'techniques'
+  );
   const [psychoTab, setPsychoTab] = useState<PsychoTab>('brain');
   const [open, setOpen] = useState<OpenItem | null>(null);
   const list = LISTS[folder];

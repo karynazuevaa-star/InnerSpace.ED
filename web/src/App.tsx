@@ -19,6 +19,7 @@ const AvatarToolPageLegacy = lazy(() =>
 );
 const MaterialsPage = lazy(() => import('./pages/MaterialsPage').then((m) => ({ default: m.MaterialsPage })));
 const TestsPage = lazy(() => import('./pages/TestsPage').then((m) => ({ default: m.TestsPage })));
+const AboutPage = lazy(() => import('./pages/AboutPage').then((m) => ({ default: m.AboutPage })));
 const RoomsPage = lazy(() => import('./pages/RoomsPage').then((m) => ({ default: m.RoomsPage })));
 const CafeRoomPage = lazy(() => import('./pages/CafeRoomPage').then((m) => ({ default: m.CafeRoomPage })));
 
@@ -96,6 +97,7 @@ function AppShell() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/materials" element={<MaterialsPage />} />
               <Route path="/tests" element={<TestsPage />} />
+              <Route path="/about" element={<AboutPage />} />
               <Route path="/rooms" element={<RoomsPage />} />
               <Route
                 path="/rooms/cafe"

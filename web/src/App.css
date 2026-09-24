@@ -2266,3 +2266,355 @@ input[type='range']::-moz-range-thumb {
   accent-color: rgba(140, 185, 255, 0.85);
   cursor: pointer;
 }
+
+/* About page - visual design borrowed from the marketing site's 404 page
+   (Новая папка/marketing-site/assets/notfound.css): the flower garden with
+   the sitting character along the bottom, a 3D card carousel above it. */
+.about-page {
+  height: 100%;
+  overflow-y: auto;
+  color: var(--text);
+}
+
+.about-scene {
+  position: relative;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.about-content {
+  position: relative;
+  z-index: 5;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 48px 24px 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.about-title {
+  font-size: clamp(40px, 6vw, 64px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 36px;
+  text-align: center;
+}
+
+/* ---- 3D carousel ---- */
+.about-carousel {
+  --shift: 62%;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  outline: none;
+}
+
+.about-stage {
+  display: grid;
+  perspective: 1400px;
+  transform-style: preserve-3d;
+}
+
+.about-card {
+  grid-area: 1 / 1;
+  justify-self: center;
+  align-self: center;
+  width: min(560px, 100%);
+  padding: 32px 36px;
+  background: rgba(21, 21, 29, 0.72);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  transform: translateX(calc(var(--offset) * var(--shift))) translateZ(calc(var(--abs) * -340px))
+    rotateY(calc(var(--offset) * -30deg));
+  opacity: calc(1 - var(--abs) * 0.62);
+  filter: brightness(calc(1 - var(--abs) * 0.35));
+  z-index: calc(10 - var(--abs));
+  transition:
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.6s ease,
+    filter 0.6s ease,
+    border-color 0.3s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.about-card-active {
+  /* Identity transform, not a zeroed 3D one - a 3D-transformed layer
+     renders its text slightly blurred. */
+  transform: none;
+  cursor: default;
+  user-select: text;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+}
+
+.about-card h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.about-card p {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  margin: 0 0 12px;
+}
+
+.about-card p:last-child {
+  margin-bottom: 0;
+}
+
+.about-usage {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-usage li {
+  padding-left: 16px;
+  border-left: 2px solid rgba(139, 108, 255, 0.5);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.about-usage-link {
+  display: inline-block;
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.about-usage-link span {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--text-dim);
+  transition: transform 0.15s, color 0.15s;
+}
+
+.about-usage-link:hover span {
+  color: var(--text);
+  transform: translateX(3px);
+}
+
+.about-usage > li > span {
+  display: block;
+}
+
+.about-usage > li > span {
+  color: var(--text-dim);
+}
+
+.about-arrow {
+  position: relative;
+  z-index: 20;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.about-arrow:hover {
+  color: var(--text);
+}
+
+.about-arrow-prev:hover {
+  transform: translateX(-2px);
+}
+
+.about-arrow-next:hover {
+  transform: translateX(2px);
+}
+
+.about-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 28px;
+}
+
+.about-dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+.about-dot-active {
+  width: 20px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.about-founder {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.about-founder-photo {
+  flex: 0 0 auto;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  /* Cut-out portrait (transparent background) on a soft brand-colored disc. */
+  background: radial-gradient(circle at 50% 35%, rgba(139, 108, 255, 0.55), rgba(91, 156, 255, 0.28) 60%, rgba(91, 156, 255, 0.12));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 12px 32px rgba(139, 108, 255, 0.25);
+}
+
+.about-founder-body .landing-eyebrow {
+  margin-bottom: 12px;
+}
+
+.about-founder-degrees {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.about-founder-tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.about-founder-tags li {
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: rgba(139, 108, 255, 0.12);
+  border: 1px solid rgba(139, 108, 255, 0.28);
+  border-radius: 999px;
+}
+
+.about-contact {
+  margin-top: 48px;
+  text-align: center;
+}
+
+.about-contact p {
+  font-size: 15px;
+  color: var(--text-dim);
+  margin: 0 0 14px;
+}
+
+.about-contact .landing-cta {
+  text-decoration: none;
+}
+
+/* ---- garden ---- */
+.about-garden {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.about-bed {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 820px;
+}
+
+.about-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  width: 72%;
+  height: 62%;
+  background: radial-gradient(ellipse, rgba(95, 211, 196, 0.26) 0%, rgba(143, 126, 255, 0.14) 45%, transparent 72%);
+  filter: blur(42px);
+}
+
+.about-bed-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  width: 48%;
+  height: 26%;
+  background:
+    radial-gradient(ellipse at 30% 60%, rgba(240, 164, 118, 0.35) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 55%, rgba(143, 125, 255, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 75%, rgba(95, 211, 196, 0.3) 0%, transparent 65%);
+  filter: blur(28px);
+}
+
+.about-bed-canvas {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 380px;
+}
+
+.about-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6%;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.55));
+}
+
+.about-firefly {
+  position: absolute;
+  border-radius: 50%;
+  animation-name: about-firefly-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes about-firefly-drift {
+  0%, 100% { transform: translate(0, 0); opacity: 0.15; }
+  50% { transform: translate(var(--about-fx, 10px), var(--about-fy, -14px)); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-firefly { animation: none; opacity: 0.6; }
+  .about-card { transition: opacity 0.3s ease; }
+}
+
+@media (max-width: 640px) {
+  .about-content { padding: 32px 12px 360px; }
+  .about-carousel { --shift: 30%; grid-template-columns: 32px 1fr 32px; gap: 0; }
+  .about-arrow { width: 32px; }
+  .about-card { padding: 24px 20px; }
+  .about-founder { flex-direction: column; align-items: flex-start; }
+  .about-founder-photo { width: 104px; height: 104px; }
+}

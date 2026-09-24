@@ -45,9 +45,14 @@ export function TopNav() {
         <NavLink to="/materials" data-tour="materials" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>
           {t('nav.materials')}
         </NavLink>
+        <NavLink to="/about" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>
+          {t('nav.about')}
+        </NavLink>
+        {/* Tests tab hidden from the nav for now (route /tests still works).
         <NavLink to="/tests" data-tour="tests" className={({ isActive }) => `top-nav-link${isActive ? ' top-nav-link-active' : ''}`}>
           {t('nav.tests')}
         </NavLink>
+        */}
       </nav>
       <LanguageSwitch />
     </header>

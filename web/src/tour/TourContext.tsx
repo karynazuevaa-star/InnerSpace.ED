@@ -6,14 +6,14 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 // to fix: the "explore the site" tour skipped straight from Avatar to
 // Materials) - inserted at index 1 to match where it actually sits in the
 // nav, not appended at the end. The tour ends on Tests, the last nav item.
-export type TourStep = 0 | 1 | 2 | 3;
-export const TOUR_NAV_TARGETS: readonly ['avatar', 'rooms', 'materials', 'tests'] = [
+// Tests is hidden from the nav for now, so the tour ends on Materials.
+export type TourStep = 0 | 1 | 2;
+export const TOUR_NAV_TARGETS: readonly ['avatar', 'rooms', 'materials'] = [
   'avatar',
   'rooms',
   'materials',
-  'tests',
 ];
-const LAST_STEP: TourStep = 3;
+const LAST_STEP: TourStep = 2;
 
 interface TourContextValue {
   step: TourStep | null;

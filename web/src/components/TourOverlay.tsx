@@ -10,9 +10,8 @@ const NAV_CAPTION_KEYS = [
   'tour.avatarCaption',
   'tour.roomsCaption',
   'tour.materialsCaption',
-  'tour.testsCaption',
 ] as const;
-const LAST_STEP: TourStep = 3;
+const LAST_STEP: TourStep = 2;
 
 export function TourOverlay() {
   const { step, next, finish } = useTour();
