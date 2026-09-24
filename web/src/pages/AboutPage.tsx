@@ -9,6 +9,8 @@ const CONTACT_EMAIL = 'info.innerspace.ed@gmail.com';
 const BASIS_ITEMS = ['cbt', 'neuro', 'bodyImage', 'cyber'] as const;
 
 const FOUNDER_DEGREES = ['bsc', 'mscCyber', 'mscAi', 'phd', 'clinical'] as const;
+// Degrees still being completed get a small star with an "in progress" hint.
+const IN_PROGRESS = new Set<string>(['mscAi', 'phd']);
 const FOUNDER_TAGS = ['tum', 'experience', 'lecturer', 'lab'] as const;
 
 // Each way of using the platform links to where it lives. Psychoeducation
@@ -42,7 +44,14 @@ export function AboutPage() {
           <span className="landing-eyebrow">Our founder</span>
           <ul className="about-founder-degrees">
             {FOUNDER_DEGREES.map((key) => (
-              <li key={key}>{t(`about.founder.${key}`)}</li>
+              <li key={key}>
+                {t(`about.founder.${key}`)}
+                {IN_PROGRESS.has(key) && (
+                  <span className="about-in-progress" tabIndex={0} aria-label={t('about.founder.inProgress')}>
+                    *<span className="about-in-progress-hint" aria-hidden="true">{t('about.founder.inProgress')}</span>
+                  </span>
+                )}
+              </li>
             ))}
           </ul>
           <ul className="about-founder-tags">

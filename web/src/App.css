@@ -2498,6 +2498,39 @@ input[type='range']::-moz-range-thumb {
   color: var(--text);
 }
 
+.about-in-progress {
+  position: relative;
+  margin-left: 3px;
+  color: #b9a8ff;
+  font-weight: 700;
+  cursor: help;
+  outline: none;
+}
+
+.about-in-progress-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translate(-50%, 4px);
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text);
+  background: #242432;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.about-in-progress:hover .about-in-progress-hint,
+.about-in-progress:focus-visible .about-in-progress-hint {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 .about-founder-tags {
   list-style: none;
   margin: 0;
