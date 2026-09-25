@@ -299,7 +299,12 @@ export function CafeEnvironment({
 const RAMEN_URL = assetUrl('/models/props/food/ramen.glb');
 
 function RamenBowl({ position, scale = 0.36 }: { position: [number, number, number]; scale?: number }) {
-  const { scene } = useGLTF(RAMEN_URL);
+  // Cloned, not useGLTF's shared instance: the same dish can also be
+  // ordered onto the player's table (OrderedFoodItem), and one
+  // Object3D can only have one parent - without the clone, ordering
+  // it made it vanish from the table it was already on.
+  const { scene: template } = useGLTF(RAMEN_URL);
+  const scene = useMemo(() => cloneGltfScene(template), [template]);
   return (
     <group position={position} scale={scale}>
       <primitive object={scene} dispose={null} />
@@ -351,7 +356,12 @@ const CHICKEN_URL = assetUrl('/models/props/food/chicken.glb');
 const CHICKEN_SCALE = 0.18;
 
 function RoastChicken({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
-  const { scene } = useGLTF(CHICKEN_URL);
+  // Cloned, not useGLTF's shared instance: the same dish can also be
+  // ordered onto the player's table (OrderedFoodItem), and one
+  // Object3D can only have one parent - without the clone, ordering
+  // it made it vanish from the table it was already on.
+  const { scene: template } = useGLTF(CHICKEN_URL);
+  const scene = useMemo(() => cloneGltfScene(template), [template]);
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={CHICKEN_SCALE}>
       <primitive object={scene} dispose={null} />
@@ -368,7 +378,12 @@ const PIZZA_URL = assetUrl('/models/props/food/pizza.glb');
 const PIZZA_SCALE = 0.023;
 
 function Pizza({ position, rotationY = 0 }: { position: [number, number, number]; rotationY?: number }) {
-  const { scene } = useGLTF(PIZZA_URL);
+  // Cloned, not useGLTF's shared instance: the same dish can also be
+  // ordered onto the player's table (OrderedFoodItem), and one
+  // Object3D can only have one parent - without the clone, ordering
+  // it made it vanish from the table it was already on.
+  const { scene: template } = useGLTF(PIZZA_URL);
+  const scene = useMemo(() => cloneGltfScene(template), [template]);
   return (
     <group position={position} rotation={[0, rotationY, 0]} scale={PIZZA_SCALE}>
       <primitive object={scene} dispose={null} />
@@ -457,7 +472,12 @@ const BUN_SCALE = 0.43;
 useGLTF.preload(BUN_URL);
 
 function Bun({ position }: { position: [number, number, number] }) {
-  const { scene } = useGLTF(BUN_URL);
+  // Cloned, not useGLTF's shared instance: the same dish can also be
+  // ordered onto the player's table (OrderedFoodItem), and one
+  // Object3D can only have one parent - without the clone, ordering
+  // it made it vanish from the table it was already on.
+  const { scene: template } = useGLTF(BUN_URL);
+  const scene = useMemo(() => cloneGltfScene(template), [template]);
   return (
     <group position={position} scale={BUN_SCALE}>
       <primitive object={scene} dispose={null} />
