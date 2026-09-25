@@ -3,14 +3,15 @@ import { useLanguage } from '../i18n/LanguageContext';
 import { InfoTooltip } from './InfoTooltip';
 
 const SLIDERS: { key: keyof BodyMorphState; labelKey: string }[] = [
+  // Overall weight first, then top to bottom down the body.
   { key: 'weight', labelKey: 'body.weight' },
-  { key: 'belly', labelKey: 'body.belly' },
-  { key: 'waist', labelKey: 'body.waist' },
-  { key: 'breast', labelKey: 'body.breast' },
-  { key: 'butt', labelKey: 'body.butt' },
-  { key: 'arms', labelKey: 'body.arms' },
-  { key: 'legs', labelKey: 'body.legs' },
   { key: 'face', labelKey: 'body.face' },
+  { key: 'arms', labelKey: 'body.arms' },
+  { key: 'breast', labelKey: 'body.breast' },
+  { key: 'waist', labelKey: 'body.waist' },
+  { key: 'belly', labelKey: 'body.belly' },
+  { key: 'butt', labelKey: 'body.butt' },
+  { key: 'legs', labelKey: 'body.legs' },
 ];
 
 export function BodySliders({
